@@ -5,35 +5,50 @@ local thirdperson = true
 local isRoaming = false
 local roamPos -- the position when roaming free
 local roamVelocity = Vector(0)
+local thirdPersonDistance = 100
 
 /*---------------------------------------------------------------------------
 startHooks
 FAdmin tab buttons
 ---------------------------------------------------------------------------*/
-FAdmin.StartHooks["zzSpectate"] = function()
-    FAdmin.Access.AddPrivilege("Spectate", 2)
-    FAdmin.Commands.AddCommand("Spectate", nil, "<Player>")
+hook.Add("Initialize", "FSpectate", function()
+    surface.CreateFont("UiBold", {
+        size = 16,
+        weight = 800,
+        antialias = true,
+        shadow = false,
+        font = "Default"})
 
-    -- Right click option
-    FAdmin.ScoreBoard.Main.AddPlayerRightClick("Spectate", function(ply)
-        if not IsValid(ply) then return end
-        RunConsoleCommand("_FAdmin", "Spectate", ply:UserID())
-    end)
+    if not FAdmin then return end
+    FAdmin.StartHooks["zzSpectate"] = function()
+        FAdmin.Commands.AddCommand("Spectate", nil, "<Player>")
 
-    -- Spectate option in player menu
-    FAdmin.ScoreBoard.Player:AddActionButton("Spectate", "fadmin/icons/spectate", Color(0, 200, 0, 255), function(ply) return FAdmin.Access.PlayerHasPrivilege(LocalPlayer(), "Spectate") and ply ~= LocalPlayer() end, function(ply)
-        if not IsValid(ply) then return end
-        RunConsoleCommand("_FAdmin", "Spectate", ply:UserID())
-    end)
-end
+        -- Right click option
+        FAdmin.ScoreBoard.Main.AddPlayerRightClick("Spectate", function(ply)
+            if not IsValid(ply) then return end
+            RunConsoleCommand("FSpectate", ply:UserID())
+        end)
+
+        local canSpectate = false
+        CAMI.PlayerHasAccess(LocalPlayer(), "FSpectate", function(b, _)
+            canSpectate = true
+        end)
+
+        -- Spectate option in player menu
+        FAdmin.ScoreBoard.Player:AddActionButton("Spectate", "fadmin/icons/spectate", Color(0, 200, 0, 255), function(ply) return canSpectate and ply ~= LocalPlayer() end, function(ply)
+            if not IsValid(ply) then return end
+            RunConsoleCommand("FSpectate", ply:UserID())
+        end)
+    end
+end)
 
 /*---------------------------------------------------------------------------
 Get the thirdperson position
 ---------------------------------------------------------------------------*/
-local function getThirdPersonPos(ply)
+local function getThirdPersonPos(ent)
     local aimvector = LocalPlayer():GetAimVector()
-    local startPos = ply:GetShootPos()
-    local endpos = startPos - aimvector * 100
+    local startPos = ent:IsPlayer() and ent:GetShootPos() or ent:LocalToWorld(ent:OBBCenter())
+    local endpos = startPos - aimvector * thirdPersonDistance
 
     local tracer = {
         start = startPos,
@@ -49,26 +64,26 @@ end
 /*---------------------------------------------------------------------------
 Get the CalcView table
 ---------------------------------------------------------------------------*/
-local view = {
-    vm_origin = Vector(0, 0, -13000)
-}
+local view = {}
 local function getCalcView()
     if not isRoaming then
         if thirdperson then
             view.origin = getThirdPersonPos(specEnt)
             view.angles = LocalPlayer():EyeAngles()
         else
-            view.origin = specEnt:GetShootPos()
-            view.angles = specEnt:EyeAngles()
+            view.origin = specEnt:IsPlayer() and specEnt:GetShootPos() or specEnt:LocalToWorld(specEnt:OBBCenter())
+            view.angles = specEnt:IsPlayer() and specEnt:EyeAngles() or specEnt:GetAngles()
         end
 
         roamPos = view.origin
+        view.drawviewer = false
 
         return view
     end
 
     view.origin = roamPos
     view.angles = LocalPlayer():EyeAngles()
+    view.drawviewer = true
 
     return view
 end
@@ -95,8 +110,14 @@ end
 /*---------------------------------------------------------------------------
 Find the right player to spectate
 ---------------------------------------------------------------------------*/
-local function findNearestPlayer()
+local function findNearestObject()
     local aimvec = LocalPlayer():GetAimVector()
+
+    local fromPos = isRoaming and roamPos or specEnt:EyePos()
+
+    local lookingAt = util.QuickTrace(fromPos, aimvec * 5000, LocalPlayer())
+
+    if IsValid(lookingAt.Entity) then return lookingAt.Entity end
 
     local foundPly, foundDot = nil, 0
 
@@ -104,15 +125,14 @@ local function findNearestPlayer()
         if ply == LocalPlayer() then continue end
 
         local pos = ply:GetShootPos()
-        local dot = (pos - roamPos):GetNormalized():Dot(aimvec)
-        local distance = pos:Distance(roamPos)
+        local dot = (pos - fromPos):GetNormalized():Dot(aimvec)
 
         -- Discard players you're not looking at
         if dot < 0.97 then continue end
         -- not a better alternative
         if dot < foundDot then continue end
 
-        local trace = util.QuickTrace(roamPos, pos - roamPos, ply)
+        local trace = util.QuickTrace(fromPos, pos - fromPos, ply)
 
         if trace.Hit then continue end
 
@@ -126,11 +146,16 @@ end
 Spectate the person you're looking at while you're roaming
 ---------------------------------------------------------------------------*/
 local function spectateLookingAt()
-    local foundPly = findNearestPlayer()
+    local obj = findNearestObject()
 
-    if not IsValid(foundPly) then return end
+    if not IsValid(obj) then return end
 
-    RunConsoleCommand("FAdmin", "Spectate", foundPly:SteamID())
+    isRoaming = false
+    specEnt = obj
+
+    net.Start("FSpectateTarget")
+        net.WriteEntity(obj)
+    net.SendToServer()
 end
 
 /*---------------------------------------------------------------------------
@@ -140,12 +165,14 @@ Change binds to perform spectate specific tasks
 -- Manual keysDown table, so I can return true in plyBindPress and still detect key presses
 local keysDown = {}
 local function specBinds(ply, bind, pressed)
+    local key = input.LookupBinding(bind)
+
     if bind == "+jump" then
         stopSpectating()
         return true
     elseif bind == "+reload" and pressed then
         local pos = getCalcView().origin - Vector(0, 0, 64)
-        RunConsoleCommand("FAdmin", "TPToPos", string.format("%d, %d, %d", pos.x, pos.y, pos.z),
+        RunConsoleCommand("FTPToPos", string.format("%d, %d, %d", pos.x, pos.y, pos.z),
             string.format("%d, %d, %d", roamVelocity.x, roamVelocity.y, roamVelocity.z))
         stopSpectating()
     elseif bind == "+attack" and pressed then
@@ -164,12 +191,14 @@ local function specBinds(ply, bind, pressed)
 
         return true
     elseif isRoaming and not LocalPlayer():KeyDown(IN_USE) then
-        local key = string.lower(string.match(bind, "+([a-z A-Z 0-9]+)") or "")
-        if not key or key == "use" or key == "showscores" or string.find(bind, "messagemode") then return end
+        local keybind = string.lower(string.match(bind, "+([a-z A-Z 0-9]+)") or "")
+        if not keybind or keybind == "use" or keybind == "showscores" or string.find(bind, "messagemode") then return end
 
-        keysDown[key:upper()] = pressed
+        keysDown[keybind:upper()] = pressed
 
         return true
+    elseif not isRoaming and thirdperson and (key == "MWHEELDOWN" or key == "MWHEELUP") then
+        thirdPersonDistance = thirdPersonDistance + 10 * (key == "MWHEELDOWN" and 1 or -1)
     end
     -- Do not return otherwise, spectating admins should be able to move to avoid getting detected
 end
@@ -274,9 +303,8 @@ local function specThink()
         roamSpeed = 300
     end
 
-    if not direction then return end
+    roamVelocity = (direction or Vector(0, 0, 0)) * roamSpeed
 
-    roamVelocity = direction * roamSpeed
     roamPos = roamPos + roamVelocity * frametime
 end
 
@@ -291,11 +319,14 @@ local function drawHelp()
     draw.WordBox(2, 10, scrHalfH + 20, isRoaming and "Right click: quickly move forwards" or "Right click: toggle thirdperson", "UiBold", uiBackground, uiForeground)
     draw.WordBox(2, 10, scrHalfH + 40, "Jump: Stop spectating", "UiBold", uiBackground, uiForeground)
     draw.WordBox(2, 10, scrHalfH + 60, "Reload: Stop spectating and teleport", "UiBold", uiBackground, uiForeground)
-    draw.WordBox(2, 10, scrHalfH + 80, "Opening FAdmin's menu while spectating a player", "UiBold", uiBackground, uiForeground)
-    draw.WordBox(2, 10, scrHalfH + 100, "\twill open their page!", "UiBold", uiBackground, uiForeground)
+
+    if FAdmin then
+        draw.WordBox(2, 10, scrHalfH + 80, "Opening FAdmin's menu while spectating a player", "UiBold", uiBackground, uiForeground)
+        draw.WordBox(2, 10, scrHalfH + 100, "\twill open their page!", "UiBold", uiBackground, uiForeground)
+    end
 
 
-    local target = findNearestPlayer()
+    local target = findNearestObject()
     local pls = player.GetAll()
     for i = 1, #pls do
         local ply = pls[i]
@@ -310,24 +341,27 @@ local function drawHelp()
         draw.WordBox(2, x, y - 66, ply:Nick(), "UiBold", uiBackground, uiForeground)
         draw.WordBox(2, x, y - 46, "Health: " .. ply:Health(), "UiBold", uiBackground, uiForeground)
         draw.WordBox(2, x, y - 26, ply:GetUserGroup(), "UiBold", uiBackground, uiForeground)
-
-        if ply == target then
-            draw.WordBox(2, x, y - 86, "Left click to spectate!", "UiBold", uiBackground, uiForeground)
-        end
     end
 
     if not isRoaming then return end
 
     if not IsValid(target) then return end
-    local mins, maxs = target:LocalToWorld(target:OBBMins()):ToScreen(), target:LocalToWorld(target:OBBMaxs()):ToScreen()
-    draw.RoundedBox(12, mins.x, mins.y, maxs.x - mins.x, maxs.y - mins.y, red)
+
+    local center = target:LocalToWorld(target:OBBCenter())
+    local eyeAng = EyeAngles()
+    local rightUp = eyeAng:Right() * 16 + eyeAng:Up() * 36
+    local topRight = (center + rightUp):ToScreen()
+    local bottomLeft = (center - rightUp):ToScreen()
+
+    draw.RoundedBox(12, bottomLeft.x, bottomLeft.y, math.max(20, topRight.x - bottomLeft.x), topRight.y - bottomLeft.y, red)
+    draw.WordBox(2, bottomLeft.x, bottomLeft.y + 12, "Left click to spectate!", "UiBold", uiBackground, uiForeground)
 end
 
 /*---------------------------------------------------------------------------
 Start roaming free, rather than spectating a given player
 ---------------------------------------------------------------------------*/
 startFreeRoam = function()
-    if IsValid(specEnt) then
+    if IsValid(specEnt) and specEnt:IsPlayer() then
         roamPos = thirdperson and getThirdPersonPos(specEnt) or specEnt:GetShootPos()
         specEnt:SetNoDraw(false)
     else
@@ -344,8 +378,9 @@ specEnt
 Spectate a player
 ---------------------------------------------------------------------------*/
 local function startSpectate(um)
-    isRoaming = um:ReadBool()
-    specEnt = um:ReadEntity()
+    isRoaming = net.ReadBool()
+    specEnt = net.ReadEntity()
+    specEnt = IsValid(specEnt) and specEnt or nil
 
     if isRoaming then
         startFreeRoam()
@@ -354,41 +389,41 @@ local function startSpectate(um)
     isSpectating = true
     keysDown = {}
 
-    hook.Add("CalcView", "FAdminSpectate", specCalcView)
-    hook.Add("PlayerBindPress", "FAdminSpectate", specBinds)
-    hook.Add("ShouldDrawLocalPlayer", "FAdminSpectate", function() return isRoaming or thirdperson end)
-    hook.Add("Think", "FAdminSpectate", specThink)
-    hook.Add("HUDPaint", "FAdminSpectate", drawHelp)
-    hook.Add("FAdmin_ShowFAdminMenu", "FAdminSpectate", fadminmenushow)
-    hook.Add("RenderScreenspaceEffects", "FAdminSpectate", lookingLines)
+    hook.Add("CalcView", "FSpectate", specCalcView)
+    hook.Add("PlayerBindPress", "FSpectate", specBinds)
+    hook.Add("ShouldDrawLocalPlayer", "FSpectate", function() return isRoaming or thirdperson end)
+    hook.Add("Think", "FSpectate", specThink)
+    hook.Add("HUDPaint", "FSpectate", drawHelp)
+    hook.Add("FAdmin_ShowFAdminMenu", "FSpectate", fadminmenushow)
+    hook.Add("RenderScreenspaceEffects", "FSpectate", lookingLines)
 
-    timer.Create("FAdminSpectatePosUpdate", 0.5, 0, function()
+    timer.Create("FSpectatePosUpdate", 0.5, 0, function()
         if not isRoaming then return end
 
-        RunConsoleCommand("_FAdmin_SpectatePosUpdate", roamPos.x, roamPos.y, roamPos.z)
+        RunConsoleCommand("_FSpectatePosUpdate", roamPos.x, roamPos.y, roamPos.z)
     end)
 end
-usermessage.Hook("FAdminSpectate", startSpectate)
+net.Receive("FSpectate", startSpectate)
 
 /*---------------------------------------------------------------------------
 stopSpectating
 Stop spectating a player
 ---------------------------------------------------------------------------*/
 stopSpectating = function()
-    hook.Remove("CalcView", "FAdminSpectate")
-    hook.Remove("PlayerBindPress", "FAdminSpectate")
-    hook.Remove("ShouldDrawLocalPlayer", "FAdminSpectate")
-    hook.Remove("Think", "FAdminSpectate")
-    hook.Remove("HUDPaint", "FAdminSpectate")
-    hook.Remove("FAdmin_ShowFAdminMenu", "FAdminSpectate")
-    hook.Remove("RenderScreenspaceEffects", "FAdminSpectate")
+    hook.Remove("CalcView", "FSpectate")
+    hook.Remove("PlayerBindPress", "FSpectate")
+    hook.Remove("ShouldDrawLocalPlayer", "FSpectate")
+    hook.Remove("Think", "FSpectate")
+    hook.Remove("HUDPaint", "FSpectate")
+    hook.Remove("FAdmin_ShowFAdminMenu", "FSpectate")
+    hook.Remove("RenderScreenspaceEffects", "FSpectate")
 
-    timer.Remove("FAdminSpectatePosUpdate")
+    timer.Remove("FSpectatePosUpdate")
 
     if IsValid(specEnt) then
         specEnt:SetNoDraw(false)
     end
 
-    RunConsoleCommand("_FAdmin_StopSpectating")
+    RunConsoleCommand("FSpectate_StopSpectating")
     isSpectating = false
 end

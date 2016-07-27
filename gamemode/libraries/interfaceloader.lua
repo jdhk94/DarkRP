@@ -21,9 +21,9 @@ local hookLayout
 
 local realm -- State variable to manage the realm of the stubs
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Methods that check whether certain fields are valid
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 isreturns = function(tbl)
     if not istable(tbl) then return false end
     for k,v in pairs(tbl) do
@@ -44,9 +44,9 @@ isdeprecated = function(val)
     return val == nil or isstring(val)
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 The layouts of stubs
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local stubLayout = {
     name = isstring,
     description = isstring,
@@ -77,9 +77,9 @@ parameterLayout = {
     optional = isbool
 }
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Check the validity of a stub
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 checkStub = function(tbl, stub)
     if not istable(tbl) then return false, "table" end
 
@@ -92,22 +92,21 @@ checkStub = function(tbl, stub)
     return true
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 When a stub is called, the calling of the method is delayed
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function notImplemented(name, args, thisFunc)
     if stubs[name] and stubs[name].metatable[name] ~= thisFunc then -- when calling the not implemented function after the function was implemented
         return stubs[name].metatable[name](unpack(args))
     end
-    delayedCalls[name] = delayedCalls[name] or {}
-    table.insert(delayedCalls[name], args)
+    table.insert(delayedCalls, {name = name, args = args})
 
     return nil -- no return value because the method is not implemented
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Generate a stub
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function stub(tbl)
     local isStub, field = checkStub(tbl, stubLayout)
     if not isStub then
@@ -124,9 +123,9 @@ function stub(tbl)
     return retNotImpl
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Generate a hook stub
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function hookStub(tbl)
     local isStub, field = checkStub(tbl, hookLayout)
     if not isStub then
@@ -137,39 +136,39 @@ function hookStub(tbl)
     hookStubs[tbl.name] = tbl
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Retrieve the stubs
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function getStubs()
     return table.Copy(stubs)
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Retrieve the hooks
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function getHooks()
     return table.Copy(hookStubs)
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Call the cached methods
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function finish()
     local calls = table.Copy(delayedCalls) -- Loop through a copy, so the notImplemented function doesn't get called again
-    for name, log in pairs(calls) do
+    for _, tbl in ipairs(calls) do
+        local name = tbl.name
+
         if not stubs[name] then ErrorNoHalt("Calling non-existing stub \"" .. name .. "\"") continue end
 
-        for _, args in pairs(log) do
-            stubs[name].metatable[name](unpack(args))
-        end
+        stubs[name].metatable[name](unpack(tbl.args))
     end
 
     delayedCalls = {}
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Load the interface files
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function loadInterfaces()
     local root = GM.FolderName .. "/gamemode/modules"
 

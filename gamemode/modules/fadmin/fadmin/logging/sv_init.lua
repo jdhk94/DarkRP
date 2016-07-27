@@ -10,33 +10,18 @@ FAdmin.StartHooks["Logging"] = function()
 
         RunConsoleCommand("FAdmin_logging", args[1])
 
+        FAdmin.SaveSetting("FAdmin_logging", args[1])
+
         return true, OnOff
     end)
     logging = GetConVar("FAdmin_logging")
 end
 
-local LogFile
-function FAdmin.Log(text, preventServerLog)
+function FAdmin.Log(text)
     if not text or text == "" then return end
     if not logging or not logging:GetBool() then return end
 
-    if not preventServerLog then
-        ServerLog(text .. "\n")
-    end
-
-    if not LogFile then
-        -- The log file of this session, if it's not there then make it!
-        if not file.IsDir("fadmin_logs", "DATA") then
-            file.CreateDir("fadmin_logs")
-        end
-
-        LogFile = "fadmin_logs/" .. os.date("%m_%d_%Y %I_%M %p") .. ".txt"
-        file.Write(LogFile, os.date() .. "\t" .. text)
-
-        return
-    end
-
-    file.Append(LogFile, "\n" .. os.date() .. "\t" .. text)
+    ServerLog("[FAdmin] " .. text .. "\n")
 end
 
 hook.Add("PlayerGiveSWEP", "FAdmin_Log", function(ply, class)
@@ -139,11 +124,6 @@ hook.Add("PlayerInitialSpawn", "FAdmin_Log", function(ply)
     FAdmin.Log(ply:Nick() .. " (" .. ply:SteamID() .. ") Spawned for the first time")
 end)
 
-hook.Add("PlayerSay", "FAdmin_Log", function(ply, text, teamonly, dead)
-    if not IsValid(ply) or not ply:IsPlayer() then return end
-    FAdmin.Log(ply:Nick() .. " (" .. ply:SteamID() .. ") [" .. (dead and "dead, " or "") .. ((not teamonly and "team only") or "all") .. "] " .. (text and text or ""), true)
-end)
-
 hook.Add("PlayerSpawn", "FAdmin_Log", function(ply)
     if not IsValid(ply) or not ply:IsPlayer() then return end
     FAdmin.Log(ply:Nick() .. " (" .. ply:SteamID() .. ") Spawned")
@@ -165,7 +145,7 @@ hook.Add("EntityRemoved", "FAdmin_Log", function(ent)
     end
 end)
 
-hook.Add("PlayerAuthed", "FAdmin_Log", function(ply, SteamID, UniqueID)
+hook.Add("PlayerAuthed", "FAdmin_Log", function(ply, SteamID, _)
     if not IsValid(ply) then return end
     FAdmin.Log(ply:Nick() .. " (" .. (SteamID or "Unknown Steam ID") .. ") is Authed")
 end)

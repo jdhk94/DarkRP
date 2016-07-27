@@ -1,15 +1,13 @@
------------------------------------------------------------------------------[[
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Utility functions
----------------------------------------------------------------------------*/
------------------------------------------------------------------------------]]
+---------------------------------------------------------------------------]]
 
 local vector = FindMetaTable("Vector")
 local meta = FindMetaTable("Player")
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Decides whether the vector could be seen by the player if they were to look at it
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function vector:isInSight(filter, ply)
     ply = ply or LocalPlayer()
     local trace = {}
@@ -22,9 +20,9 @@ function vector:isInSight(filter, ply)
     return not TheTrace.Hit, TheTrace.HitPos
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Turn a money amount into a pretty string
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function attachCurrency(str)
     local config = GAMEMODE.Config
     return config.currencyLeft and config.currency .. str or str .. config.currency
@@ -49,9 +47,9 @@ function DarkRP.formatMoney(n)
     return (negative and "-" or "") .. attachCurrency(n)
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Find a player based on given information
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function DarkRP.findPlayer(info)
     if not info or info == "" then return nil end
     local pls = player.GetAll()
@@ -66,20 +64,20 @@ function DarkRP.findPlayer(info)
             return v
         end
 
-        if string.find(string.lower(v:SteamName()), string.lower(tostring(info)), 1, true) ~= nil then
+        if string.find(string.lower(v:Name()), string.lower(tostring(info)), 1, true) ~= nil then
             return v
         end
 
-        if string.find(string.lower(v:Name()), string.lower(tostring(info)), 1, true) ~= nil then
+        if string.find(string.lower(v:SteamName()), string.lower(tostring(info)), 1, true) ~= nil then
             return v
         end
     end
     return nil
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Find multiple players based on a string criterium
-Taken from FAdmin
+Taken from FAdmin]]
 ---------------------------------------------------------------------------*/
 function DarkRP.findPlayers(info)
     if not info then return nil end
@@ -133,6 +131,8 @@ function meta:getEyeSightHitEntity(searchDistance, hitDistance, filter)
     hitDistance = hitDistance or 15
     filter = filter or function(p) return p:IsPlayer() and p ~= self end
 
+    self:LagCompensation(true)
+
     local shootPos = self:GetShootPos()
     local entities = ents.FindInSphere(shootPos, searchDistance)
     local aimvec = self:GetAimVector()
@@ -168,6 +168,8 @@ function meta:getEyeSightHitEntity(searchDistance, hitDistance, filter)
         end
     end
 
+    self:LagCompensation(false)
+
     if smallestDistance < hitDistance then
         return foundEnt, smallestDistance
     end
@@ -175,9 +177,9 @@ function meta:getEyeSightHitEntity(searchDistance, hitDistance, filter)
     return nil
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Print the currently available vehicles
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function GetAvailableVehicles(ply)
     if SERVER and IsValid(ply) and not ply:IsAdmin() then return end
     local print = SERVER and ServerLog or Msg
@@ -193,9 +195,9 @@ else
     concommand.Add("rp_getvehicles", GetAvailableVehicles)
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Whether a player has a DarkRP privilege
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function meta:hasDarkRPPrivilege(priv)
     if FAdmin then
         return FAdmin.Access.PlayerHasPrivilege(self, priv)
@@ -203,18 +205,18 @@ function meta:hasDarkRPPrivilege(priv)
     return self:IsAdmin()
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Convenience function to return the players sorted by name
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function DarkRP.nickSortedPlayers()
     local plys = player.GetAll()
     table.sort(plys, function(a,b) return a:Nick() < b:Nick() end)
     return plys
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Convert a string to a table of arguments
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local bitlshift, stringgmatch, stringsub, tableinsert = bit.lshift, string.gmatch, string.sub, table.insert
 function DarkRP.explodeArg(arg)
     local args = {}

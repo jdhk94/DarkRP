@@ -3,9 +3,9 @@ local pocket = {}
 local frame
 local reload
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Stubs
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 DarkRP.stub{
     name = "openPocketMenu",
     description = "Open the DarkRP pocket menu.",
@@ -17,9 +17,9 @@ DarkRP.stub{
     metatable = DarkRP
 }
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Interface functions
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function meta:getPocketItems()
     if self ~= LocalPlayer() then return nil end
 
@@ -30,10 +30,12 @@ function DarkRP.openPocketMenu()
     if frame and frame:IsValid() and frame:IsVisible() then return end
     if LocalPlayer():GetActiveWeapon():GetClass() ~= "pocket" then return end
     if not pocket then pocket = {} return end
-    if #pocket <= 0 then return end
+    if table.Count(pocket) == 0 then return end
     frame = vgui.Create("DFrame")
 
     frame:SetTitle(DarkRP.getPhrase("drop_item"))
+    frame.btnMaxim:SetVisible(false)
+    frame.btnMinim:SetVisible(false)
     frame:SetVisible(true)
     frame:MakePopup()
 
@@ -42,9 +44,9 @@ function DarkRP.openPocketMenu()
 end
 
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 UI
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function reload()
     if not IsValid(frame) or not frame:IsVisible() then return end
     if not pocket or next(pocket) == nil then frame:Close() return end

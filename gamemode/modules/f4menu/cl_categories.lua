@@ -1,6 +1,6 @@
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Category header
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local PANEL = {}
 
 function PANEL:Init()
@@ -23,9 +23,9 @@ end
 
 derma.DefineControl("F4MenuCategoryHeader", "", PANEL, "DCategoryHeader")
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Contents of category headers
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 PANEL = {}
 
 function PANEL:Init()
@@ -58,9 +58,9 @@ end
 
 derma.DefineControl("F4MenuCategoryContents", "", PANEL, "DPanelList")
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Category panel
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 PANEL = {}
 
 function PANEL:Init()
@@ -96,9 +96,9 @@ function PANEL:SetCategory(cat)
 end
 
 function PANEL:SetPerformLayout(f)
-    self.Contents.PerformLayout = function(self)
-        f(self)
-        self.BaseClass.PerformLayout(self)
+    self.Contents.PerformLayout = function()
+        f(self.Contents)
+        self.Contents.BaseClass.PerformLayout(self.Contents)
     end
 end
 

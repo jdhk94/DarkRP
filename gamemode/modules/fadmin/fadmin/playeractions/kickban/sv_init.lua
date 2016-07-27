@@ -16,7 +16,7 @@ local function Kick(ply, cmd, args)
     local Reason = (not table.HasValue(stages, stage) and table.concat(args, ' ', 2)) or table.concat(args, ' ', 3) or ply.FAdminKickReason
 
     for _, target in pairs(targets) do
-        if not FAdmin.Access.PlayerHasPrivilege(ply, "Kick", target) then FAdmin.Messages.SendMessage(ply, 5, "No access!")  return false end
+        if not FAdmin.Access.PlayerHasPrivilege(ply, "Kick", target) then FAdmin.Messages.SendMessage(ply, 5, "No access!") return false end
         if IsValid(target) then
             if stage == "start" then
                 SendUserMessage("FAdmin_kick_start", target) -- Tell him he's getting kicked
@@ -34,8 +34,6 @@ local function Kick(ply, cmd, args)
             else
                 local name = IsValid(ply) and ply:IsPlayer() and ply:Nick() or "Console"
 
-                FAdmin.Messages.ActionMessage(ply, target, "You have kicked %s", "You were kicked by %s", "Kicked %s")
-
                 Reason = Reason and string.gsub(Reason, ";", " ") or "No reason provided"
 
                 game.ConsoleCommand(string.format("kickid %s %s\n", target:UserID(), "Kicked by " .. name ..
@@ -43,6 +41,10 @@ local function Kick(ply, cmd, args)
                 ply.FAdminKickReason = nil
             end
         end
+    end
+
+    if stage ~= "start" and stage ~= "cancel" and stage ~= "update" then
+        FAdmin.Messages.FireNotification("kick", ply, nil, {targets, Reason})
     end
 
     return true, targets, stage, Reason
@@ -61,7 +63,16 @@ FAdmin.BANS = FAdmin.BANS or {}
 local function RequestBans(ply, cmd, args)
     if not FAdmin.Access.PlayerHasPrivilege(ply, "UnBan") then FAdmin.Messages.SendMessage(ply, 5, "No access!") return false end
     net.Start("FAdmin_retrievebans")
-        net.WriteTable(FAdmin.BANS)
+        net.WriteUInt(table.Count(FAdmin.BANS), 32)
+
+        for k, v in pairs(FAdmin.BANS) do
+            net.WriteString(k or "") -- SteamID
+            net.WriteUInt(v.time or 0, 32)
+            net.WriteString(v.name or "")
+            net.WriteString(v.reason or "")
+            net.WriteString(v.adminname or "")
+            net.WriteString(v.adminsteam or "")
+        end
     net.Send(ply)
 
     return true, FAdmin.BANS
@@ -126,6 +137,7 @@ local function Ban(ply, cmd, args)
     local stage = string.lower(args[2])
     local stages = {"start", "cancel", "update", "execute"}
     local Reason = (not table.HasValue(stages, stage) and table.concat(args, ' ', 3)) or table.concat(args, ' ', 4) or ply.FAdminKickReason
+    local time
 
     for _, target in pairs(targets) do
         if (type(target) == "string" and not FAdmin.Access.PlayerHasPrivilege(ply, "Ban")) or
@@ -164,7 +176,7 @@ local function Ban(ply, cmd, args)
                 umsg.String(tostring(args[4]))
             umsg.End()
         else
-            local time = tonumber(args[2]) or 0
+            time = tonumber(args[2]) or 0
             Reason = (Reason ~= "" and Reason) or args[3] or ""
 
             if stage == "execute" then
@@ -174,7 +186,7 @@ local function Ban(ply, cmd, args)
 
             local TimeText = FAdmin.PlayerActions.ConvertBanTime(time)
 
-            if type(target) ~= "string" and  IsValid(target) then
+            if type(target) ~= "string" and IsValid(target) then
                 for k,v in pairs(StartBannedUsers) do
                     if v == target:SteamID() then
                         table.remove(StartBannedUsers, k)
@@ -185,10 +197,7 @@ local function Ban(ply, cmd, args)
                 SaveBan(target:SteamID(), target:Nick(), time, Reason, nick, ply.SteamID and ply:SteamID() or "Console")
 
                 Reason = string.gsub(Reason, ";", " ")
-
-                FAdmin.Messages.ActionMessage(ply, target, "You have Banned %s for " .. TimeText, "You were Banned by %s", "Banned %s (" .. TimeText .. ") (" .. Reason .. ")")
-                game.ConsoleCommand("banid " .. time .. " " .. target:SteamID() .. "\n")
-                game.ConsoleCommand(string.format("kickid %s %s\n", target:UserID(), " banned by " .. nick .. " for " .. TimeText .. " (" .. Reason .. ")"))
+                target:Kick("banned by " .. nick .. " for " .. TimeText .. " (" .. Reason .. ")")
             else
                 for k,v in pairs(StartBannedUsers) do
                     if v == args[1] then
@@ -198,11 +207,13 @@ local function Ban(ply, cmd, args)
                 end
 
                 SaveBan(target, nil, time, Reason ~= "" and Reason, ply.Nick and ply:Nick() or "console", ply.SteamID and ply:SteamID() or "Console") -- Again default to one hour
-                game.ConsoleCommand("banid " .. time .. " " .. target .. "\n")
-                FAdmin.Messages.ActionMessage(ply, {}, "You have Banned " .. target .. " for " .. TimeText, "", "Banned " .. target .. " (" .. TimeText .. ") (" .. Reason .. ")")
             end
             ply.FAdminKickReason = nil
         end
+    end
+
+    if stage ~= "start" and stage ~= "cancel" and stage ~= "update" then
+        FAdmin.Messages.FireNotification("ban", ply, nil, {targets, time, Reason})
     end
 
     return true, targets, stage, Reason
@@ -213,12 +224,14 @@ local function UnBan(ply, cmd, args)
     if not FAdmin.Access.PlayerHasPrivilege(ply, "UnBan") then FAdmin.Messages.SendMessage(ply, 5, "No access!") return false end
     if not args[1] then return false end
     local SteamID = string.upper(args[1])
+    local nick = "Unknown"
 
     hook.Call("FAdmin_UnBan", nil, ply, SteamID)
 
     for k,v in pairs(FAdmin.BANS) do
         if string.upper(k) == SteamID then
-            FAdmin.BANS[string.upper(k)] = nil
+            nick = FAdmin.BANS[k].name or nick
+            FAdmin.BANS[k] = nil
             break
         end
     end
@@ -231,7 +244,7 @@ local function UnBan(ply, cmd, args)
     end
 
     game.ConsoleCommand("removeid " .. SteamID .. "\n")
-    FAdmin.Messages.ActionMessage(ply, {}, "You have Unbanned " .. SteamID, "", "Unbanned " .. SteamID)
+    FAdmin.Messages.FireNotification("unban", ply, nil, {nick, SteamID})
 
     return true, SteamID
 end
@@ -275,13 +288,33 @@ hook.Add("DarkRPDBInitialized", "FAdmin_Retrievebans", function()
                 continue
             end
 
-            if v.time == 0 then
-                game.ConsoleCommand("banid 0 " .. k .. "\n")
-            else
-                game.ConsoleCommand("banid " .. (v.time - os.time()) / 60 .. " " .. k .. "\n")
-            end
             hook.Call("FAdmin_StoreBan", nil, string.upper(k), v.name, (v.time - os.time()) / 60, v.reason, v.adminname, v.adminsteam)
         end
         file.Delete("FAdmin/Bans.txt", "DATA")
+    end
+end)
+
+local function canJoin(steamID)
+    local ban = FAdmin.BANS[string.upper(steamID)]
+
+    if not ban then return end
+
+    if ban.time ~= 0 and ban.time < os.time() then
+        FAdmin.BANS[string.upper(steamID)] = nil
+        return
+    end
+
+    local timeText = FAdmin.PlayerActions.ConvertBanTime((ban.time - os.time()) / 60)
+
+    return false, "banned by " .. (ban.adminname or "<Unknown>") .. " for " .. timeText .. " (" .. (ban.reason or "no reason") .. ")"
+end
+hook.Add("CheckPassword", "FAdmin_Bans", fc{canJoin, util.SteamIDFrom64})
+
+-- When the bans haven't loaded yet, or when the player passes
+-- CheckPassword when banned, they'll be caught on InitialSpawn
+hook.Add("PlayerInitialSpawn", "FAdmin_Bans", function(ply)
+    local allowedIn, reason = canJoin(ply:SteamID())
+    if allowedIn == false then
+        ply:Kick(reason)
     end
 end)

@@ -1,4 +1,3 @@
-local StarterGroups = {"superadmin", "admin", "user", "noaccess"}
 local ContinueNewGroup
 local EditGroups
 
@@ -79,7 +78,7 @@ FAdmin.StartHooks["1SetAccess"] = function() -- 1 in hook name so it will be exe
         menu:Open()
     end)
 
-    FAdmin.ScoreBoard.Server:AddPlayerAction("Edit groups", "fadmin/icons/access", Color(0, 155, 0, 255), true, EditGroups)
+    FAdmin.ScoreBoard.Server:AddPlayerAction("Edit groups", "fadmin/icons/access", Color(0, 155, 0, 255), function() return FAdmin.Access.PlayerHasPrivilege(LocalPlayer(), "ManageGroups") or FAdmin.Access.PlayerHasPrivilege(LocalPlayer(), "ManagePrivileges") end, EditGroups)
 
     -- Admin immunity
     FAdmin.ScoreBoard.Server:AddServerSetting(function()
@@ -87,7 +86,7 @@ FAdmin.StartHooks["1SetAccess"] = function() -- 1 in hook name so it will be exe
         end,
         function()
             return "fadmin/icons/access", FAdmin.GlobalSetting.Immunity and "fadmin/icons/disable"
-        end, Color(0, 0, 155, 255), function(ply) return FAdmin.Access.PlayerHasPrivilege(LocalPlayer(), "SetAccess") end, function(button)
+        end, Color(0, 0, 155, 255), function(ply) return FAdmin.Access.PlayerHasPrivilege(LocalPlayer(), "ManageGroups") end, function(button)
             button:SetImage2((not FAdmin.GlobalSetting.Immunity and "fadmin/icons/disable") or "null")
             button:SetText((not FAdmin.GlobalSetting.Immunity and "Disable" or "Enable") .. " Admin immunity")
             button:GetParent():InvalidateLayout()
@@ -238,8 +237,8 @@ EditGroups = function()
     RemPriv.DoClick = function()
         for k,v in pairs(SelectedPrivs:GetSelected()) do
             local priv = v.Columns[1]:GetValue()
-            if SelectedGroup:GetValue() == LocalPlayer():GetUserGroup() and priv == "SetAccess" then
-                return Derma_Message("You shouldn't be removing SetAccess. It will make you unable to edit the groups. This is preventing you from locking yourself out of the system.", "Clever move.")
+            if SelectedGroup:GetValue() == LocalPlayer():GetUserGroup() and priv == "ManagePrivileges" then
+                return Derma_Message("You shouldn't be removing ManagePrivileges. It will make you unable to edit the groups. This is preventing you from locking yourself out of the system.", "Clever move.")
             end
             RunConsoleCommand("FAdmin", "RemovePrivilege", SelectedGroup:GetValue(), priv)
             Privileges:AddLine(priv)

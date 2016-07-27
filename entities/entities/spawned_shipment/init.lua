@@ -83,15 +83,16 @@ function ENT:Use(activator, caller)
         return self.PlayerUse
     end
 
-    if not self.locked then
-        self.locked = true -- One activation per second
-        self.sparking = true
-        self:Setgunspawn(CurTime() + 1)
-        timer.Create(self:EntIndex() .. "crate", 1, 1, function()
-            if not IsValid(self) then return end
-            self.SpawnItem(self)
-        end)
-    end
+    if self.locked or self.USED then return end
+
+    self.locked = true -- One activation per second
+    self.USED = true
+    self.sparking = true
+    self:Setgunspawn(CurTime() + 1)
+    timer.Create(self:EntIndex() .. "crate", 1, 1, function()
+        if not IsValid(self) then return end
+        self.SpawnItem(self)
+    end)
 end
 
 function ENT:SpawnItem()
@@ -99,11 +100,10 @@ function ENT:SpawnItem()
     timer.Remove(self:EntIndex() .. "crate")
     self.sparking = false
     local count = self:Getcount()
-    local pos = self:GetPos()
     if count <= 1 then self:Remove() end
     local contents = self:Getcontents()
 
-    if CustomShipments[contents] and CustomShipments[contents].spawn then return CustomShipments[contents].spawn(self, CustomShipments[contents]) end
+    if CustomShipments[contents] and CustomShipments[contents].spawn then self.USED = false return CustomShipments[contents].spawn(self, CustomShipments[contents]) end
 
     local weapon = ents.Create("spawned_weapon")
 
@@ -132,6 +132,7 @@ function ENT:SpawnItem()
     count = count - 1
     self:Setcount(count)
     self.locked = false
+    self.USED = nil
 end
 
 function ENT:Think()
@@ -175,7 +176,7 @@ function ENT:Destruct()
     self:Remove()
 end
 
-function ENT:Touch(ent)
+function ENT:StartTouch(ent)
     -- the .USED var is also used in other mods for the same purpose
     if not ent.IsSpawnedShipment or
         self:Getcontents() ~= ent:Getcontents() or

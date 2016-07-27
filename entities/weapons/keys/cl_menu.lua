@@ -50,7 +50,9 @@ local function openMenu(setDoorOwnerAccess, doorSettingsAccess)
 
     KeyFrameVisible = true
     local Frame = vgui.Create("DFrame")
-    Frame:SetSize(200, 30) -- base size
+    Frame:SetSize(200, 30) -- Base size
+    Frame.btnMaxim:SetVisible(false)
+    Frame.btnMinim:SetVisible(false)
     Frame:SetVisible(true)
     Frame:MakePopup()
 
@@ -158,11 +160,15 @@ local function openMenu(setDoorOwnerAccess, doorSettingsAccess)
             local add = teams:AddSubMenu(DarkRP.getPhrase("add"))
             local remove = teams:AddSubMenu(DarkRP.getPhrase("remove"))
 
-            menu:AddOption(DarkRP.getPhrase("none"), function() RunConsoleCommand("darkrp", "togglegroupownable") Frame:Close() end)
+            menu:AddOption(DarkRP.getPhrase("none"), function()
+                RunConsoleCommand("darkrp", "togglegroupownable")
+                if IsValid(Frame) then Frame:Close() end
+            end)
+
             for k,v in pairs(RPExtraTeamDoors) do
                 groups:AddOption(k, function()
                     RunConsoleCommand("darkrp", "togglegroupownable", k)
-                    Frame:Close()
+                    if IsValid(Frame) then Frame:Close() end
                 end)
             end
 
@@ -171,7 +177,7 @@ local function openMenu(setDoorOwnerAccess, doorSettingsAccess)
                 local which = (not doorTeams or not doorTeams[k]) and add or remove
                 which:AddOption(v.name, function()
                     RunConsoleCommand("darkrp", "toggleteamownable", k)
-                    Frame:Close()
+                    if IsValid(Frame) then Frame:Close() end
                 end)
             end
 

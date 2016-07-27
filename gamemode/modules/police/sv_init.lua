@@ -2,9 +2,9 @@ local plyMeta = FindMetaTable("Player")
 local finishWarrantRequest
 local arrestedPlayers = {}
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Interface functions
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function plyMeta:warrant(warranter, reason)
     if self.warranted then return end
     local suppressMsg = hook.Call("playerWarranted", GAMEMODE, self, warranter, reason)
@@ -52,7 +52,7 @@ function plyMeta:wanted(actor, reason, time)
     self:setDarkRPVar("wanted", true)
     self:setDarkRPVar("wantedReason", reason)
 
-    timer.Create(self:UniqueID() .. " wantedtimer", time or GAMEMODE.Config.wantedtime, 1, function()
+    timer.Create(self:SteamID64() .. " wantedtimer", time or GAMEMODE.Config.wantedtime, 1, function()
         if not IsValid(self) then return end
         self:unWanted()
     end)
@@ -76,7 +76,7 @@ function plyMeta:unWanted(actor)
     self:setDarkRPVar("wanted", nil)
     self:setDarkRPVar("wantedReason", nil)
 
-    timer.Remove(self:UniqueID() .. " wantedtimer")
+    timer.Remove(self:SteamID64() .. " wantedtimer")
 
     if suppressMsg then return end
 
@@ -113,9 +113,9 @@ function plyMeta:unArrest(unarrester)
     hook.Call("playerUnArrested", DarkRP.hooks, self, unarrester)
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Chat commands
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function CombineRequest(ply, args)
     if args == "" then
         DarkRP.notify(ply, 1, 4, DarkRP.getPhrase("invalid_x", "argument", ""))
@@ -129,13 +129,15 @@ local function CombineRequest(ply, args)
         end
         for k, v in pairs(player.GetAll()) do
             if v:isCP() or v == ply then
-                DarkRP.talkToPerson(v, team.GetColor(ply:Team()), DarkRP.getPhrase("request") .. ply:Nick(), Color(255, 0, 0, 255), text, ply)
+                DarkRP.talkToPerson(v, team.GetColor(ply:Team()), DarkRP.getPhrase("request") .. " " .. ply:Nick(), Color(255, 0, 0, 255), text, ply)
             end
         end
     end
     return args, DoSay
 end
-DarkRP.defineChatCommand("cr", CombineRequest, 1.5)
+for _, cmd in pairs{"cr", "911", "999", "112", "000"} do
+    DarkRP.defineChatCommand(cmd, CombineRequest, 1.5)
+end
 
 local function warrantCommand(ply, args)
     local target = DarkRP.findPlayer(args[1])
@@ -143,7 +145,7 @@ local function warrantCommand(ply, args)
 
     local canRequest, message = hook.Call("canRequestWarrant", DarkRP.hooks, target, ply, reason)
     if not canRequest then
-        DarkRP.notify(ply, 1, 4, message)
+        if message then DarkRP.notify(ply, 1, 4, message) end
         return ""
     end
 
@@ -170,13 +172,29 @@ local function warrantCommand(ply, args)
 end
 DarkRP.defineChatCommand("warrant", warrantCommand)
 
+local function unwarrantCommand(ply, args)
+    local target = DarkRP.findPlayer(args[1])
+    local reason = table.concat(args, " ", 2)
+
+    local canRemove, message = hook.Call("canRemoveWarrant", DarkRP.hooks, target, ply, reason)
+    if not canRemove then
+        if message then DarkRP.notify(ply, 1, 4, message) end
+        return ""
+    end
+
+    target:unWarrant(ply, reason)
+
+    return ""
+end
+DarkRP.defineChatCommand("unwarrant", unwarrantCommand)
+
 local function wantedCommand(ply, args)
     local target = DarkRP.findPlayer(args[1])
     local reason = table.concat(args, " ", 2)
 
     local canWanted, message = hook.Call("canWanted", DarkRP.hooks, target, ply, reason)
     if not canWanted then
-        DarkRP.notify(ply, 1, 4, message)
+        if message then DarkRP.notify(ply, 1, 4, message) end
         return ""
     end
 
@@ -191,7 +209,7 @@ local function unwantedCommand(ply, args)
 
     local canUnwant, message = hook.Call("canUnwant", DarkRP.hooks, target, ply)
     if not canUnwant then
-        DarkRP.notify(ply, 1, 4, message)
+        if message then DarkRP.notify(ply, 1, 4, message) end
         return ""
     end
 
@@ -201,9 +219,9 @@ local function unwantedCommand(ply, args)
 end
 DarkRP.defineChatCommand("unwanted", unwantedCommand)
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Admin commands
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function ccArrest(ply, args)
     if DarkRP.jailPosCount() == 0 then
         DarkRP.notify(ply, 1, 4, DarkRP.getPhrase("no_jail_pos"))
@@ -255,9 +273,9 @@ local function ccUnarrest(ply, args)
 end
 DarkRP.definePrivilegedChatCommand("unarrest", "DarkRP_AdminCommands", ccUnarrest)
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Callback functions
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function finishWarrantRequest(choice, mayor, initiator, suspect, reason)
     if not tobool(choice) then
         DarkRP.notify(initiator, 1, 4, DarkRP.getPhrase("warrant_denied", mayor:Nick()))
@@ -268,9 +286,40 @@ function finishWarrantRequest(choice, mayor, initiator, suspect, reason)
     end
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Hooks
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
+
+function DarkRP.hooks:canArrest(arrester, arrestee)
+    if IsValid(arrestee) and arrestee:IsPlayer() and arrestee:isCP() and not GAMEMODE.Config.cpcanarrestcp then
+        return false, DarkRP.getPhrase("cant_arrest_other_cp")
+    end
+
+    if not GAMEMODE.Config.npcarrest and arrestee:IsNPC() then
+        return false, DarkRP.getPhrase("unable", "arrest", "NPC")
+    end
+
+    if GAMEMODE.Config.needwantedforarrest and not arrestee:IsNPC() and not arrestee:getDarkRPVar("wanted") then
+        return false, DarkRP.getPhrase("must_be_wanted_for_arrest")
+    end
+
+    if arrestee:IsPlayer() and arrestee.FAdmin_GetGlobal and arrestee:FAdmin_GetGlobal("fadmin_jailed") then
+        return false, DarkRP.getPhrase("cant_arrest_fadmin_jailed")
+    end
+
+    local jpc = DarkRP.jailPosCount()
+
+    if not jpc or jpc == 0 then
+        return false, DarkRP.getPhrase("cant_arrest_no_jail_pos")
+    end
+
+    if arrestee.Babygod then
+        return false, DarkRP.getPhrase("cant_arrest_spawning_players")
+    end
+
+    return true
+end
+
 function DarkRP.hooks:playerArrested(ply, time, arrester)
     if ply:isWanted() then ply:unWanted(arrester) end
     ply:setDarkRPVar("HasGunlicense", nil)
@@ -286,7 +335,7 @@ function DarkRP.hooks:playerArrested(ply, time, arrester)
     end
 
     local steamID = ply:SteamID()
-    timer.Create(ply:UniqueID() .. "jailtimer", time, 1, function()
+    timer.Create(ply:SteamID64() .. "jailtimer", time, 1, function()
         if IsValid(ply) then ply:unArrest() end
         arrestedPlayers[steamID] = nil
     end)
@@ -296,17 +345,17 @@ function DarkRP.hooks:playerArrested(ply, time, arrester)
 end
 
 function DarkRP.hooks:playerUnArrested(ply, actor)
-    if ply.Sleeping and GAMEMODE.KnockoutToggle then
+    if ply.Sleeping then
         DarkRP.toggleSleep(ply, "force")
     end
 
     gamemode.Call("PlayerLoadout", ply)
     if GAMEMODE.Config.telefromjail then
-        local ent, pos = GAMEMODE:PlayerSelectSpawn(ply)
+        local ent, pos = hook.Call("PlayerSelectSpawn", GAMEMODE, ply)
         timer.Simple(0, function() if IsValid(ply) then ply:SetPos(pos or ent:GetPos()) end end) -- workaround for SetPos in weapon event bug
     end
 
-    timer.Remove(ply:UniqueID() .. "jailtimer")
+    timer.Remove(ply:SteamID64() .. "jailtimer")
     DarkRP.notifyAll(0, 4, DarkRP.getPhrase("hes_unarrested", ply:Name()))
 end
 

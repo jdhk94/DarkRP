@@ -8,6 +8,11 @@ function PANEL:Init()
 
     self:SetPos(-self:GetWide(), ScrH() * 0.05)
 
+    -- Can be removed once https://github.com/garrynewman/garrysmod/pull/1141 is merged.
+    -- It is here so it is set BEFORE the following panels are created.
+    -- Normally, it is set in DarkRP.openF1Menu().
+    self:SetSkin(GAMEMODE.Config.DarkRPSkin)
+
     self.slideInTime = self.slideInTime or 0.3
     self.toggled = false
 
@@ -86,12 +91,11 @@ function PANEL:AnimationThink()
     self.progress = self.progress or 1
     self.progress = self.slideRight and math.max(0, self.progress - FrameTime() / self.slideInTime) or math.min(1, self.progress + FrameTime())
 
-    local x, y = self:GetPos()
+    local _, y = self:GetPos()
     self:SetPos(-self:GetWide() * self.progress, y)
 end
 
 function PANEL:Paint()
-    local x, y = self:GetPos()
     local w, h = self:GetSize()
     draw.RoundedBoxEx(4, 0, 0, w, h, self:GetBackgroundColor(), false, true, false, true)
 end

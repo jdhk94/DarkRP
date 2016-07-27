@@ -1,8 +1,6 @@
------------------------------------------------------------------------------[[
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 The fonts that DarkRP uses
----------------------------------------------------------------------------*/
------------------------------------------------------------------------------]]
+---------------------------------------------------------------------------]]
 local function loadFonts()
     local tahoma = system.IsLinux() and "DejaVu Sans" or "Tahoma"
     local tahomaSize = system.IsLinux() and fp{fn.Flip(fn.Add), 1} or fn.Id
@@ -37,6 +35,13 @@ local function loadFonts()
 
     surface.CreateFont("Trebuchet24", {
         size = 24,
+        weight = 500,
+        antialias = true,
+        shadow = false,
+        font = "Trebuchet MS"})
+
+    surface.CreateFont("Trebuchet48", {
+        size = 48,
         weight = 500,
         antialias = true,
         shadow = false,

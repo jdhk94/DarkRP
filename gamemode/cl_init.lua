@@ -1,10 +1,14 @@
 hook.Run("DarkRPStartedLoading")
 
-GM.Version = "2.6.2"
+GM.Version = "2.7.0"
 GM.Name = "DarkRP"
 GM.Author = "By FPtje Falco et al."
 
 DeriveGamemode("sandbox")
+DEFINE_BASECLASS("gamemode_sandbox")
+GM.Sandbox = BaseClass
+
+
 local function LoadModules()
     local root = GM.FolderName .. "/gamemode/modules/"
     local _, folders = file.Find(root .. "*", "LUA")
@@ -31,6 +35,7 @@ include("config/config.lua")
 include("libraries/sh_cami.lua")
 include("libraries/simplerr.lua")
 include("libraries/fn.lua")
+include("libraries/tablecheck.lua")
 include("libraries/interfaceloader.lua")
 include("libraries/disjointset.lua")
 

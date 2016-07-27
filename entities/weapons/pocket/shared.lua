@@ -21,6 +21,8 @@ SWEP.Author = "DarkRP Developers"
 SWEP.Instructions = "Left click to pick up\nRight click to drop\nReload to open the menu"
 SWEP.Contact = ""
 SWEP.Purpose = ""
+SWEP.IsDarkRPPocket = true
+
 SWEP.IconLetter = ""
 
 SWEP.ViewModelFOV = 62
@@ -83,13 +85,19 @@ end
 function SWEP:SecondaryAttack()
     if not SERVER then return end
 
-    local item = #self:GetOwner():getPocketItems()
-    if item <= 0 then
+    local maxK = 0
+
+    for k, v in pairs(self:GetOwner():getPocketItems()) do
+        if k < maxK then continue end
+        maxK = k
+    end
+
+    if maxK == 0 then
         DarkRP.notify(self:GetOwner(), 1, 4, DarkRP.getPhrase("pocket_no_items"))
         return
     end
 
-    self:GetOwner():dropPocketItem(item)
+    self:GetOwner():dropPocketItem(maxK)
 end
 
 function SWEP:Reload()

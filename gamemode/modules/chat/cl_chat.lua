@@ -1,12 +1,12 @@
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Gamemode function
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function GM:OnPlayerChat()
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Add a message to chat
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function AddToChat(bits)
     local col1 = Color(net.ReadUInt(8), net.ReadUInt(8), net.ReadUInt(8))
 
@@ -32,7 +32,7 @@ local function AddToChat(bits)
             chat.AddNonParsedText(col1, prefixText, col2, ": " .. text)
         end
     else
-        shouldShow = hook.Call("ChatText", GAMEMODE, "0", prefixText, prefixText, "none")
+        shouldShow = hook.Call("ChatText", GAMEMODE, "0", prefixText, prefixText, "darkrp")
 
         if shouldShow ~= true then
             chat.AddNonParsedText(col1, prefixText)
@@ -42,11 +42,11 @@ local function AddToChat(bits)
 end
 net.Receive("DarkRP_Chat", AddToChat)
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Credits
 
 Please only ADD to the credits.
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local creds =
 [[
 

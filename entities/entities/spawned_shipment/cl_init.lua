@@ -45,7 +45,7 @@ function ENT:drawSpawning()
     local distance = normal:Dot(pos)
     self.height = self:OBBMaxs().z * ((CurTime() - self.StartTime) / GAMEMODE.Config.shipmentspawntime)
     render.EnableClipping(true)
-    render.PushCustomClipPlane(normal, distance);
+    render.PushCustomClipPlane(normal, distance)
 
     self:DrawModel()
 
@@ -137,9 +137,9 @@ function ENT:drawInfo()
     cam.End3D2D()
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Create a shipment from a spawned_weapon
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 properties.Add("splitShipment",
 {
     MenuLabel   =   "Split this shipment",

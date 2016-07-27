@@ -1,5 +1,17 @@
 
 FAdmin.StartHooks["zz_Teleport"] = function()
+    FAdmin.Messages.RegisterNotification{
+        name = "goto",
+        hasTarget = true,
+        message = {"instigator", " teleported to ", "targets"}
+    }
+
+    FAdmin.Messages.RegisterNotification{
+        name = "bring",
+        hasTarget = true,
+        message = {"instigator", " brought ", "targets", " to them"}
+    }
+
     FAdmin.Access.AddPrivilege("Teleport", 2)
 
     FAdmin.Commands.AddCommand("Teleport", nil, "[Player]")

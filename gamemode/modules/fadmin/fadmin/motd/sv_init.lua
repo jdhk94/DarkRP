@@ -89,9 +89,3 @@ FAdmin.StartHooks["MOTD"] = function()
     FAdmin.Commands.AddCommand("MOTDPage", FAdmin.MOTD.SetMOTDPage)
     FAdmin.Commands.AddCommand("CreateMOTD", CreateMOTD)
 end
-
-hook.Add("PlayerInitialSpawn", "SendMOTDSite", function()
-    local Site = MOTDPage:GetString()
-    RunConsoleCommand("_FAdmin_MOTDPage", ".")
-    timer.Simple(0.5, function() RunConsoleCommand("_FAdmin_MOTDPage", Site) end)
-end)

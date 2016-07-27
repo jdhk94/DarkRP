@@ -1,6 +1,6 @@
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Functions
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local meta = FindMetaTable("Player")
 function meta:changeTeam(t, force, suppressNotification)
     local prevTeam = self:Team()
@@ -12,8 +12,10 @@ function meta:changeTeam(t, force, suppressNotification)
         return false
     end
 
-    if t ~= GAMEMODE.DefaultTeam and not self:changeAllowed(t) and not force then
-        notify(self, 1, 4, DarkRP.getPhrase("unable", team.GetName(t), "banned/demoted"))
+    local allowed, time = self:changeAllowed(t)
+    if t ~= GAMEMODE.DefaultTeam and not allowed and not force then
+        local notif = time and DarkRP.getPhrase("have_to_wait",  math.ceil(time), "/job, " .. DarkRP.getPhrase("banned_or_demoted")) or DarkRP.getPhrase("unable", team.GetName(t), DarkRP.getPhrase("banned_or_demoted"))
+        notify(self, 1, 4, notif)
         return false
     end
 
@@ -165,7 +167,7 @@ function meta:updateJob(job)
     self:setDarkRPVar("job", job)
     self.LastJob = CurTime()
 
-    timer.Create(self:UniqueID() .. "jobtimer", GAMEMODE.Config.paydelay, 0, function()
+    timer.Create(self:SteamID64() .. "jobtimer", GAMEMODE.Config.paydelay, 0, function()
         if not IsValid(self) then return end
         self:payDay()
     end)
@@ -186,17 +188,28 @@ function meta:teamBan(t, time)
     local group = DarkRP.getDemoteGroup(t)
     self.bannedfrom[group] = true
 
+    local timerid = "teamban" .. self:UserID() .. "," .. group.value
+
+    timer.Remove(timerid)
+
     if time == 0 then return end
-    timer.Simple(time or GAMEMODE.Config.demotetime, function()
+
+    timer.Create(timerid, time or GAMEMODE.Config.demotetime, 1, function()
         if not IsValid(self) then return end
         self:teamUnBan(t)
     end)
 end
 
+function meta:teamBanTimeLeft(t)
+    local group = DarkRP.getDemoteGroup(t or self:Team())
+    return timer.TimeLeft("teamban" .. self:UserID() .. "," .. (group and group.value or ""))
+end
+
 function meta:changeAllowed(t)
     local group = DarkRP.getDemoteGroup(t)
-    if not self.bannedfrom then return true end
-    if self.bannedfrom[group] then return false else return true end
+    if self.bannedfrom and self.bannedfrom[group] then return false, self:teamBanTimeLeft(t) end
+
+    return true
 end
 
 function GM:canChangeJob(ply, args)
@@ -212,9 +225,9 @@ function GM:canChangeJob(ply, args)
     return true
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Commands
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function ChangeJob(ply, args)
     if args == "" then
         DarkRP.notify(ply, 1, 4, DarkRP.getPhrase("invalid_x", "argument", ""))

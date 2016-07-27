@@ -40,8 +40,10 @@ function DarkRP.chatCommandAlias(command, ...)
     for k, v in pairs{...} do
         name = string.lower(v)
 
-        DarkRP.chatCommands[name] = table.Copy(DarkRP.chatCommands[command])
-        DarkRP.chatCommands[name].command = name
+        DarkRP.chatCommands[name] = {command = name}
+        setmetatable(DarkRP.chatCommands[name], {
+            __index = DarkRP.chatCommands[command]
+        })
     end
 end
 
@@ -63,9 +65,9 @@ end
 -- chat commands that have been defined, but not declared
 DarkRP.getIncompleteChatCommands = fn.Curry(fn.Filter, 3)(fn.Compose{fn.Not, checkChatCommand})(DarkRP.chatCommands)
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Chat commands
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 DarkRP.declareChatCommand{
     command = "pm",
     description = "Send a private message to someone.",
@@ -105,12 +107,6 @@ DarkRP.declareChatCommand{
 DarkRP.declareChatCommand{
     command = "ooc",
     description = "Global server chat.",
-    delay = 1.5
-}
-
-DarkRP.declareChatCommand{
-    command = "advert",
-    description = "Advertise something to everyone in the server.",
     delay = 1.5
 }
 

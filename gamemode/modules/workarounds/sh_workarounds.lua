@@ -1,9 +1,10 @@
 -- Shared part
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Sound crash glitch
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 
 local entity = FindMetaTable("Entity")
+local plyMeta = FindMetaTable("Player")
 local EmitSound = entity.EmitSound
 function entity:EmitSound(sound, ...)
     if not sound then DarkRP.error(string.format("The first argument of the ent:EmitSound call is '%s'. It's supposed to be a string.", tostring(sound)), 3) end
@@ -88,9 +89,9 @@ end)
 
 -- Clientside part
 if CLIENT then
-    /*---------------------------------------------------------------------------
+    --[[---------------------------------------------------------------------------
     Generic InitPostEntity workarounds
-    ---------------------------------------------------------------------------*/
+    ---------------------------------------------------------------------------]]
     hook.Add("InitPostEntity", "DarkRP_Workarounds", function()
         if hook.GetTable().HUDPaint then hook.Remove("HUDPaint","drawHudVital") end -- Removes the white flashes when the server lags and the server has flashbang. Workaround because it's been there for fucking years
 
@@ -117,9 +118,19 @@ if CLIENT then
     return
 end
 
-/*---------------------------------------------------------------------------
+if game.SinglePlayer() or GetConVar("sv_lan"):GetBool() then
+    local sid64 = plyMeta.SteamID64
+
+    function plyMeta:SteamID64(...)
+        local sid = sid64(self, ...)
+
+        return sid or 0
+    end
+end
+
+--[[---------------------------------------------------------------------------
 Generic InitPostEntity workarounds
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 hook.Add("InitPostEntity", "DarkRP_Workarounds", function()
     local commands = concommand.GetTable()
     if commands["durgz_witty_sayings"] then
@@ -135,33 +146,25 @@ hook.Add("InitPostEntity", "DarkRP_Workarounds", function()
         concommand.Remove("gm_save")
     end
 
-    -- Fuck up URS.
-    -- https://github.com/Aaron113/URS
-    -- It fucks up every other mod that denies the spawning of entities
-    local ursthing = URSCheck
-    if ursthing then
-        URSCheck = function(...)
-            local res = ursthing(...)
-            if res == true then
-                ErrorNoHalt("Fucking up URS' spawn check. Please call Aaron113 a lazy ass in this issue: https://github.com/Aaron113/URS/issues/11\n")
-                return
-            end
-            return res
+    -- Remove that weird rooftop spawn in rp_downtown_v4c_v2
+    if game.GetMap() == "rp_downtown_v4c_v2" then
+        for k,v in pairs(ents.FindByClass("info_player_terrorist")) do
+            v:Remove()
         end
     end
 end)
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Fuck up APAnti. These hooks send unnecessary net messages.
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 timer.Simple(3, function()
     hook.Remove("Move", "_APA.Settings.AllowGMSpawn")
     hook.Remove("PlayerSpawnObject", "_APA.Settings.AllowGMSpawn")
 end)
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Wire field generator exploit
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 hook.Add("OnEntityCreated", "DRP_WireFieldGenerator", function(ent)
     timer.Simple(0, function()
         if IsValid(ent) and ent:GetClass() == "gmod_wire_field_device" then
@@ -176,10 +179,10 @@ hook.Add("OnEntityCreated", "DRP_WireFieldGenerator", function(ent)
     end)
 end)
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Door tool is shitty
 Let's fix that huge class exploit
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 hook.Add("InitPostEntity", "FixDoorTool", function()
     local oldFunc = makedoor
     if oldFunc then
@@ -191,9 +194,9 @@ hook.Add("InitPostEntity", "FixDoorTool", function()
     end
 end)
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Anti crash exploit
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 hook.Add("PropBreak", "drp_AntiExploit", function(attacker, ent)
     if IsValid(ent) and ent:GetPhysicsObject():IsValid() then
         constraint.RemoveAll(ent)
@@ -207,7 +210,7 @@ local allowedDoors = {
 }
 
 hook.Add("CanTool", "DoorExploit", function(ply, trace, tool)
-    if not IsValid(ply:GetActiveWeapon()) or not ply:GetActiveWeapon().GetToolObject or not ply:GetActiveWeapon():GetToolObject() then return end
+    if not IsValid(ply) or not ply:IsPlayer() or not IsValid(ply:GetActiveWeapon()) or not ply:GetActiveWeapon().GetToolObject or not ply:GetActiveWeapon():GetToolObject() then return end
 
     tool = ply:GetActiveWeapon():GetToolObject()
     if not allowedDoors[string.lower(tool:GetClientInfo("door_class") or "")] then
@@ -215,9 +218,9 @@ hook.Add("CanTool", "DoorExploit", function(ply, trace, tool)
     end
 end)
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Actively deprecate commands
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local deprecated = {
     {command = "rp_removeletters",      alternative = "removeletters"           },
     {command = "rp_setname",            alternative = "forcerpname"             },
@@ -232,7 +235,7 @@ local deprecated = {
     {command = "rp_tell",               alternative = "admintell"               },
     {command = "rp_teamunban",          alternative = "teamunban"               },
     {command = "rp_teamban",            alternative = "teamban"                 },
-    {command = "rp_setsalary",          alternative = "setsalary"               },
+    {command = "rp_setsalary",          alternative = "setmoney"                },
     {command = "rp_setmoney",           alternative = "setmoney"                },
     {command = "rp_revokelicense",      alternative = "unsetlicense"            },
     {command = "rp_givelicense",        alternative = "setlicense"              },

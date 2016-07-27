@@ -2,14 +2,12 @@ FAdmin.ScoreBoard.Player.Information = {}
 FAdmin.ScoreBoard.Player.ActionButtons = {}
 
 function FAdmin.ScoreBoard.Player.Show(ply)
-    local OldPly = FAdmin.ScoreBoard.Player.Player
     ply = ply or FAdmin.ScoreBoard.Player.Player
     FAdmin.ScoreBoard.Player.Player = ply
 
     if not IsValid(ply) or not IsValid(FAdmin.ScoreBoard.Player.Player) then FAdmin.ScoreBoard.ChangeView("Main") return end
 
-    local ScreenWidth, ScreenHeight = ScrW(), ScrH()
-    local SteamID = ply:SteamID()
+    local ScreenHeight = ScrH()
 
     FAdmin.ScoreBoard.Player.Controls.AvatarBackground = vgui.Create("AvatarImage")
     FAdmin.ScoreBoard.Player.Controls.AvatarBackground:SetPos(FAdmin.ScoreBoard.X + 20, FAdmin.ScoreBoard.Y + 100)
@@ -30,13 +28,13 @@ function FAdmin.ScoreBoard.Player.Show(ply)
     end
 
     FAdmin.ScoreBoard.Player.Controls.InfoPanel1 = vgui.Create("DListLayout")
-    FAdmin.ScoreBoard.Player.Controls.InfoPanel1:SetPos(FAdmin.ScoreBoard.X + 20, FAdmin.ScoreBoard.Y + 100 + 184 + 5 /* + Avatar size*/)
+    FAdmin.ScoreBoard.Player.Controls.InfoPanel1:SetPos(FAdmin.ScoreBoard.X + 20, FAdmin.ScoreBoard.Y + 100 + 184 + 5 --[[ + Avatar size]])
     FAdmin.ScoreBoard.Player.Controls.InfoPanel1:SetSize(184, ScreenHeight * 0.1 + 2)
     FAdmin.ScoreBoard.Player.Controls.InfoPanel1:SetVisible(true)
     FAdmin.ScoreBoard.Player.Controls.InfoPanel1:Clear(true)
 
     FAdmin.ScoreBoard.Player.Controls.InfoPanel2 = FAdmin.ScoreBoard.Player.Controls.InfoPanel2 or vgui.Create("FAdminPanelList")
-    FAdmin.ScoreBoard.Player.Controls.InfoPanel2:SetPos(FAdmin.ScoreBoard.X + 25 + 184/*+ Avatar*/, FAdmin.ScoreBoard.Y + 100)
+    FAdmin.ScoreBoard.Player.Controls.InfoPanel2:SetPos(FAdmin.ScoreBoard.X + 25 + 184 --[[+ Avatar]], FAdmin.ScoreBoard.Y + 100)
     FAdmin.ScoreBoard.Player.Controls.InfoPanel2:SetSize(FAdmin.ScoreBoard.Width - 184 - 30 - 10, 184 + 5 + ScreenHeight * 0.1 + 2)
     FAdmin.ScoreBoard.Player.Controls.InfoPanel2:SetVisible(true)
     FAdmin.ScoreBoard.Player.Controls.InfoPanel2:Clear(true)
@@ -174,8 +172,8 @@ function FAdmin.ScoreBoard.Player:AddActionButton(Name, Image, color, Visible, A
 end
 
 FAdmin.ScoreBoard.Player:AddInformation("Name", function(ply) return ply:Nick() end)
-FAdmin.ScoreBoard.Player:AddInformation("SteamID", function(ply) return ply:SteamID() end)
 FAdmin.ScoreBoard.Player:AddInformation("Kills", function(ply) return ply:Frags() end)
 FAdmin.ScoreBoard.Player:AddInformation("Deaths", function(ply) return ply:Deaths() end)
 FAdmin.ScoreBoard.Player:AddInformation("Health", function(ply) return ply:Health() end)
 FAdmin.ScoreBoard.Player:AddInformation("Ping", function(ply) return ply:Ping() end)
+FAdmin.ScoreBoard.Player:AddInformation("SteamID", function(ply) return ply:SteamID() end, true)

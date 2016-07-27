@@ -107,11 +107,12 @@ local function Bring(ply, cmd, args)
             target:SetPos(DarkRP.findEmptyPos(BringTo:GetPos(), {target}, 600, 30, Vector(16, 16, 64)))
 
             zapEffect(target)
-            FAdmin.Log(string.format("FAdmin: %s (%s) brought %s (%s) to %s", ply:EntIndex() == 0 and "Console" or ply:Nick(), ply:SteamID(), target:Name(), target:SteamID(), BringTo:Nick()))
 
             if PHYSGUN then timer.Simple(0.5, function() target:Give("weapon_physgun") target:SelectWeapon("weapon_physgun") end) end
         end)
     end
+
+    FAdmin.Messages.FireNotification("bring", ply, targets)
 
     return true, targets, BringTo
 end
@@ -130,13 +131,28 @@ local function Goto(ply, cmd, args)
     ply:SetPos(DarkRP.findEmptyPos(target:GetPos(), {ply}, 600, 30, Vector(16, 16, 64)))
 
     zapEffect(ply)
-    FAdmin.Log(string.format("FAdmin: %s (%s) went to %s",ply:Nick(), ply:SteamID(), target:Name()))
+
+    FAdmin.Messages.FireNotification("goto", ply, target)
 
     return true, target
 end
 
-FAdmin.StartHooks["Teleport"] = function()
+FAdmin.StartHooks["zz_Teleport"] = function()
     FAdmin.Access.AddPrivilege("Teleport", 2)
+
+    FAdmin.Messages.RegisterNotification{
+        name = "goto",
+        hasTarget = true,
+        receivers = "admins",
+        message = {"instigator", " teleported to ", "targets"},
+    }
+
+    FAdmin.Messages.RegisterNotification{
+        name = "bring",
+        hasTarget = true,
+        receivers = "admins",
+        message = {"instigator", " brought ", "targets", " to them"},
+    }
 
     FAdmin.Commands.AddCommand("Teleport", Teleport)
     FAdmin.Commands.AddCommand("TP", Teleport)

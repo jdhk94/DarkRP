@@ -1,6 +1,12 @@
 local GUIToggled = false
 local mouseX, mouseY = ScrW() / 2, ScrH() / 2
 function GM:ShowSpare1()
+    local jobTable = LocalPlayer():getJobTable()
+
+    if jobTable.ShowSpare1 then
+        return jobTable.ShowSpare1(LocalPlayer())
+    end
+
     GUIToggled = not GUIToggled
 
     if GUIToggled then
@@ -11,12 +17,22 @@ function GM:ShowSpare1()
     gui.EnableScreenClicker(GUIToggled)
 end
 
+function GM:ShowSpare2()
+    local jobTable = LocalPlayer():getJobTable()
+
+    if jobTable.ShowSpare2 then
+        return jobTable.ShowSpare2(LocalPlayer())
+    end
+
+    DarkRP.toggleF4Menu()
+end
+
 function GM:PlayerStartVoice(ply)
     if ply == LocalPlayer() then
         ply.DRPIsTalking = true
         return -- Not the original rectangle for yourself! ugh!
     end
-    self.BaseClass:PlayerStartVoice(ply)
+    self.Sandbox.PlayerStartVoice(self, ply)
 end
 
 function GM:PlayerEndVoice(ply)
@@ -25,7 +41,7 @@ function GM:PlayerEndVoice(ply)
         return
     end
 
-    self.BaseClass:PlayerEndVoice(ply)
+    self.Sandbox.PlayerEndVoice(self, ply)
 end
 
 function GM:OnPlayerChat()
@@ -39,7 +55,7 @@ local FKeyBinds = {
 }
 
 function GM:PlayerBindPress(ply, bind, pressed)
-    self.BaseClass:PlayerBindPress(ply, bind, pressed)
+    self.Sandbox.PlayerBindPress(self, ply, bind, pressed)
 
     local bnd = string.match(string.lower(bind), "gm_[a-z]+[12]?")
     if bnd and FKeyBinds[bnd] then

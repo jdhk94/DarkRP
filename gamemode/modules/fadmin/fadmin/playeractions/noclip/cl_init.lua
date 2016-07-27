@@ -7,6 +7,18 @@ local function EnableDisableNoclip(ply)
 end
 
 FAdmin.StartHooks["zz_Noclip"] = function()
+    FAdmin.Messages.RegisterNotification{
+        name = "noclipenable",
+        hasTarget = true,
+        message = {"instigator", " enabled noclip for ", "targets"},
+    }
+
+    FAdmin.Messages.RegisterNotification{
+        name = "noclipdisable",
+        hasTarget = true,
+        message = {"instigator", " disabled noclip for ", "targets"},
+    }
+
     FAdmin.Access.AddPrivilege("Noclip", 2)
     FAdmin.Access.AddPrivilege("SetNoclip", 2)
 
@@ -17,7 +29,7 @@ FAdmin.StartHooks["zz_Noclip"] = function()
             return "Disable noclip"
         end
         return "Enable noclip"
-    end, function(ply) return "fadmin/icons/noclip", (EnableDisableNoclip(ply) and "fadmin/icons/disable") end, Color(0, 200, 0, 255),
+    end, function(ply) return "fadmin/icons/noclip", EnableDisableNoclip(ply) and "fadmin/icons/disable" end, Color(0, 200, 0, 255),
 
     function(ply) return FAdmin.Access.PlayerHasPrivilege(LocalPlayer(), "SetNoclip") end, function(ply, button)
         if EnableDisableNoclip(ply) then

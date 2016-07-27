@@ -1,18 +1,16 @@
------------------------------------------------------------------------------[[
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 This module finds out for you who can see you talk or speak through the microphone
----------------------------------------------------------------------------*/
------------------------------------------------------------------------------]]
+---------------------------------------------------------------------------]]
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Variables
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local receivers
 local currentChatText = {}
 local receiverConfigs = {}
 local currentConfig = {text = "", hearFunc = fn.Id} -- Default config is not loaded yet
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 addChatReceiver
 Add a chat command with specific receivers
 
@@ -22,7 +20,7 @@ hearFunc: a function(ply, splitText) that decides whether this player can or can
     return true if the player can hear you
            false if the player cannot
            nil if you want to prevent the text from showing up temporarily
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function DarkRP.addChatReceiver(prefix, text, hearFunc)
     receiverConfigs[prefix] = {
         text = text,
@@ -30,19 +28,19 @@ function DarkRP.addChatReceiver(prefix, text, hearFunc)
     }
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 removeChatReceiver
 Remove a chat command.
 
 prefix: the command, like in addChatReceiver
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function DarkRP.removeChatReceiver(prefix)
     receiverConfigs[prefix] = nil
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Draw the results to the screen
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function drawChatReceivers()
     if not receivers then return end
 
@@ -71,9 +69,9 @@ local function drawChatReceivers()
     end
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Find out who could hear the player if they were to speak now
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function chatGetRecipients()
     if not currentConfig then return end
 
@@ -94,9 +92,9 @@ local function chatGetRecipients()
     end
 end
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Called when the player starts typing
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function startFind()
     currentConfig = receiverConfigs[""]
     hook.Add("Think", "DarkRP_chatRecipients", chatGetRecipients)
@@ -104,18 +102,18 @@ local function startFind()
 end
 hook.Add("StartChat", "DarkRP_StartFindChatReceivers", startFind)
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Called when the player stops typing
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function stopFind()
     hook.Remove("Think", "DarkRP_chatRecipients")
     hook.Remove("HUDPaint", "DarkRP_DrawChatReceivers")
 end
 hook.Add("FinishChat", "DarkRP_StopFindChatReceivers", stopFind)
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Find out which chat command the user is typing
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function findConfig(text)
     local split = string.Explode(' ', text)
     local prefix = string.lower(split[1])
@@ -127,24 +125,24 @@ end
 hook.Add("ChatTextChanged", "DarkRP_FindChatRecipients", findConfig)
 
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Default chat receievers. If you want to add your own ones, don't add them to this file. Add them to a clientside module file instead.
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 -- Load after the custom languages have been loaded
 local function loadChatReceivers()
     -- Default talk chat receiver has no prefix
     DarkRP.addChatReceiver("", DarkRP.getPhrase("talk"), function(ply)
         if GAMEMODE.Config.alltalk then return nil end
 
-        return LocalPlayer():GetPos():Distance(ply:GetPos()) < 250
+        return LocalPlayer():GetPos():DistToSqr(ply:GetPos()) < 62500
     end)
 
     DarkRP.addChatReceiver("/ooc", DarkRP.getPhrase("speak_in_ooc"), function(ply) return true end)
     DarkRP.addChatReceiver("//", DarkRP.getPhrase("speak_in_ooc"), function(ply) return true end)
     DarkRP.addChatReceiver("/a", DarkRP.getPhrase("speak_in_ooc"), function(ply) return true end)
-    DarkRP.addChatReceiver("/w", DarkRP.getPhrase("whisper"), function(ply) return LocalPlayer():GetPos():Distance(ply:GetPos()) < 90 end)
-    DarkRP.addChatReceiver("/y", DarkRP.getPhrase("yell"), function(ply) return LocalPlayer():GetPos():Distance(ply:GetPos()) < 550 end)
-    DarkRP.addChatReceiver("/me", DarkRP.getPhrase("perform_your_action"), function(ply) return LocalPlayer():GetPos():Distance(ply:GetPos()) < 250 end)
+    DarkRP.addChatReceiver("/w", DarkRP.getPhrase("whisper"), function(ply) return LocalPlayer():GetPos():DistToSqr(ply:GetPos()) < 8100 end)
+    DarkRP.addChatReceiver("/y", DarkRP.getPhrase("yell"), function(ply) return LocalPlayer():GetPos():DistToSqr(ply:GetPos()) < 302500 end)
+    DarkRP.addChatReceiver("/me", DarkRP.getPhrase("perform_your_action"), function(ply) return LocalPlayer():GetPos():DistToSqr(ply:GetPos()) < 62500 end)
     DarkRP.addChatReceiver("/g", DarkRP.getPhrase("talk_to_your_group"), function(ply)
         for _, func in pairs(GAMEMODE.DarkRPGroupChats) do
             if func(LocalPlayer()) and func(ply) then
@@ -164,21 +162,21 @@ local function loadChatReceivers()
             string.lower(ply:SteamID()) == text[2]
     end)
 
-    /*---------------------------------------------------------------------------
-    Voice chat receivers
-    ---------------------------------------------------------------------------*/
+    --[[---------------------------------------------------------------------------
+        Voice chat receivers
+        ---------------------------------------------------------------------------]]
     DarkRP.addChatReceiver("speak", DarkRP.getPhrase("speak"), function(ply)
         if not LocalPlayer().DRPIsTalking then return nil end
-        if LocalPlayer():GetPos():Distance(ply:GetPos()) > 550 then return false end
+        if LocalPlayer():GetPos():DistToSqr(ply:GetPos()) > 302500 then return false end
 
         return not GAMEMODE.Config.dynamicvoice or ply:isInRoom()
     end)
 end
 hook.Add("loadCustomDarkRPItems", "loadChatListeners", loadChatReceivers)
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Called when the player starts using their voice
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function startFindVoice(ply)
     if ply ~= LocalPlayer() then return end
 
@@ -188,9 +186,9 @@ local function startFindVoice(ply)
 end
 hook.Add("PlayerStartVoice", "DarkRP_VoiceChatReceiverFinder", startFindVoice)
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Called when the player stops using their voice
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function stopFindVoice(ply)
     if ply ~= LocalPlayer() then return end
 

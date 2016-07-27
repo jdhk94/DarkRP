@@ -98,11 +98,12 @@ function DarkRP.isEmpty(vector, ignore)
         and point ~= CONTENTS_LADDER
         and point ~= CONTENTS_PLAYERCLIP
         and point ~= CONTENTS_MONSTERCLIP
+    if not a then return false end
 
     local b = true
 
     for k,v in pairs(ents.FindInSphere(vector, 35)) do
-        if (v:IsNPC() or v:IsPlayer() or v:GetClass() == "prop_physics") and not table.HasValue(ignore, v) then
+        if (v:IsNPC() or v:IsPlayer() or v:GetClass() == "prop_physics" or v.NotEmptyPos) and not table.HasValue(ignore, v) then
             b = false
             break
         end
@@ -112,7 +113,7 @@ function DarkRP.isEmpty(vector, ignore)
 end
 
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Find an empty position near the position given in the first parameter
 pos - The position to use as a center for looking around
 ignore - what entities to ignore when looking for the position (the position can be within the entity)
@@ -122,7 +123,7 @@ area - the position relative to pos that should also be free
 
 Performance: O(N^2) (The Lua part, that is, I don't know about the C++ counterpart)
 Don't call this function too often or with big inputs.
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function DarkRP.findEmptyPos(pos, ignore, distance, step, area)
     if DarkRP.isEmpty(pos, ignore) and DarkRP.isEmpty(pos + area, ignore) then
         return pos

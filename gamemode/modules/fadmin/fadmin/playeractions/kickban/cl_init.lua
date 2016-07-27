@@ -1,6 +1,6 @@
-/*
+--[[
 WHEN GETTING KICKED
-*/
+]]
 local KickText = ""
 usermessage.Hook("FAdmin_kick_start", function()
     hook.Add("HUDPaint", "FAdmin_kick", function()
@@ -38,9 +38,9 @@ usermessage.Hook("FAdmin_ban_update", function(um)
     BanText = um:ReadString()
 end)
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Show the window for banning
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function showBanWindow(SteamID, NICK, time, reason)
     local BanTime = time or 60
     NICK = NICK or ""
@@ -188,9 +188,9 @@ local function showBanWindow(SteamID, NICK, time, reason)
     Window:DoModal()
 end
 
-/*
+--[[
 ADD BUTTONS ETC. TO MENU
-*/
+]]
 FAdmin.StartHooks["CL_KickBan"] = function()
     FAdmin.Access.AddPrivilege("Kick", 2)
     FAdmin.Access.AddPrivilege("Ban", 2)
@@ -343,17 +343,27 @@ FAdmin.StartHooks["CL_KickBan"] = function()
         end
 
     local function RetrieveBans(len)
-        local bans = net.ReadTable()
-        for k,v in pairs(bans) do               local Line = BanList:AddLine(
-                    k,
-                    v.name or "N/A",
-                    (tonumber(v.time or "") and FAdmin.PlayerActions.ConvertBanTime((tonumber(v.time) - os.time()) / 60)) or "N/A",
-                    v.reason or "",
-                    v.adminname or "",
-                    v.adminsteam or "")
-                Line.name = v.name
-                Line.time = v.time
-                Line.reason = v.reason
+        local banCount = net.ReadUInt(32)
+
+        for i = 1, banCount do
+            local steamid = net.ReadString()
+            local time = net.ReadUInt(32)
+            local name = net.ReadString()
+            local reason = net.ReadString()
+            local adminname = net.ReadString()
+            local adminsteam = net.ReadString()
+
+
+            local Line = BanList:AddLine(
+                    steamid,
+                    name or "N/A",
+                    (tonumber(time or "") and FAdmin.PlayerActions.ConvertBanTime((tonumber(time) - os.time()) / 60)) or "N/A",
+                    reason or "",
+                    adminname or "",
+                    adminsteam or "")
+                Line.name = name
+                Line.time = time
+                Line.reason = reason
 
                 function Line:OnSelect()
                     selectedLine = self

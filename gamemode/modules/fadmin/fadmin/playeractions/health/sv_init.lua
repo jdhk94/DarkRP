@@ -7,7 +7,7 @@ local function SetHealth(ply, cmd, args)
     local targets = FAdmin.FindPlayer(args[1])
     if not targets or #targets == 1 and not IsValid(targets[1]) then
         targets = {ply}
-        Health = math.floor(tonumber(args[1] or 100))
+        Health = math.floor(tonumber(args[1] or 100) or 100)
         return false
     end
 
@@ -18,12 +18,20 @@ local function SetHealth(ply, cmd, args)
         end
     end
 
-    FAdmin.Messages.ActionMessage(ply, targets, "You've set the health of %s to " .. Health, "Your health was set by %s", "Set the health of %s to " .. Health)
+    FAdmin.Messages.FireNotification("sethealth", ply, targets, {Health})
 
     return true, targets, Health
 end
 
 FAdmin.StartHooks["Health"] = function()
+    FAdmin.Messages.RegisterNotification{
+        name = "sethealth",
+        hasTarget = true,
+        receivers = "everyone",
+        writeExtraInfo = function(info) net.WriteUInt(info[1], 16) end,
+        message = {"instigator", " set the health of ", "targets", " to ", "extraInfo.1"},
+    }
+
     FAdmin.Commands.AddCommand("SetHealth", SetHealth)
     FAdmin.Commands.AddCommand("hp", SetHealth)
 

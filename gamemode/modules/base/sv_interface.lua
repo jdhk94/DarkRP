@@ -67,10 +67,64 @@ DarkRP.retrievePlayerData = DarkRP.stub{
             description = "The function that receives the information.",
             type = "function",
             optional = false
+        },
+        {
+            name = "failure",
+            description = "The function that is called when the information cannot be retrieved.",
+            type = "function",
+            optional = false
         }
     },
     returns = {
     },
+    metatable = DarkRP
+}
+
+DarkRP.offlinePlayerData = DarkRP.stub{
+    name = "offlinePlayerData",
+    description = "Get a player's information from the database using a SteamID for use when the player is offline.",
+    parameters = {
+        {
+            name = "steamid",
+            description = "The SteamID of the player to get the data for.",
+            type = "string",
+            optional = false
+        },
+        {
+            name = "callback",
+            description = "The function that receives the information.",
+            type = "function",
+            optional = false
+        },
+        {
+            name = "failure",
+            description = "The function that is called when the information cannot be retrieved.",
+            type = "function",
+            optional = false
+        }
+    },
+    returns = {},
+    metatable = DarkRP
+}
+
+DarkRP.storeOfflineMoney = DarkRP.stub{
+    name = "storeOfflineMoney",
+    description = "Store the wallet amount of an offline player. Use DarkRP.offlinePlayerData to fetch the current wallet amount.",
+    parameters = {
+        {
+            name = "sid64",
+            description = "The SteamID64 of the player to set the wallet of. NOTE: THIS USED TO BE THE UNIQUEID, BUT THIS CHANGED!",
+            type = "number",
+            optional = false
+        },
+        {
+            name = "amount",
+            description = "The amount of money.",
+            type = "number",
+            optional = false
+        }
+    },
+    returns = {},
     metatable = DarkRP
 }
 
@@ -132,7 +186,8 @@ DarkRP.storeMoney = DarkRP.stub{
 
 DarkRP.storeSalary = DarkRP.stub{
     name = "storeSalary",
-    description = "Internal function. Store a player's salary in the database. Do not call this if you just want to set someone's salary, the player will not see the change!",
+    description = "Internal and deprecated function. Used to store a player's salary in the database.",
+    deprecated = "Use the ply:setSelfDarkRPVar(\"salary\", value) function instead.",
     parameters = {
         {
             name = "ply",
@@ -169,12 +224,17 @@ DarkRP.retrieveSalary = DarkRP.stub{
         },
         {
             name = "callback",
-            description = "The function that receives the salary.",
+            description = "The function that receives the salary. Deprecated, use the return value.",
             type = "function",
             optional = false
         }
     },
     returns = {
+        {
+            name = "salary",
+            description = "The salary.",
+            type = "number"
+        }
     },
     metatable = DarkRP
 }
@@ -431,7 +491,7 @@ DarkRP.talkToPerson = DarkRP.stub{
 
 DarkRP.isEmpty = DarkRP.stub{
     name = "isEmpty",
-    description = "Check whether the given position is empty.",
+    description = "Check whether the given position is empty. If you want the function not to ignore your entity, set the variable NotEmptyPos (ex. ENT.NotEmptyPos = true)",
     parameters = {
         {
             name = "pos",
@@ -528,8 +588,8 @@ DarkRP.PLAYER.removeDarkRPVar = DarkRP.stub{
         },
         {
             name = "target",
-            description = "the clients to whom this variable is sent.",
-            type = "CRecipientFilter",
+            description = "The clients to whom this variable is sent. Defaults to all players.",
+            type = "table",
             optional = true
         }
     },
@@ -555,8 +615,8 @@ DarkRP.PLAYER.setDarkRPVar = DarkRP.stub{
         },
         {
             name = "target",
-            description = "the clients to whom this variable is sent.",
-            type = "CRecipientFilter",
+            description = "The clients to whom this variable is sent. Defaults to all players.",
+            type = "table",
             optional = true
         }
     },

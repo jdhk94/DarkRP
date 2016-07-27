@@ -1,198 +1,4 @@
 local plyMeta = FindMetaTable("Player")
--- automatically block players from doing certain things with their DarkRP entities
-local blockTypes = {"Physgun1", "Spawning1", "Toolgun1"}
-
--- Assert function, asserts a property and returns the error if false.
--- Allows f to override err and hints by simply returning them
-local ass = function(f, err, hints) return function(...)
-    local res = {f(...)}
-    table.insert(res, err)
-    table.insert(res, hints)
-
-    return unpack(res)
-end end
-
--- Returns whether a value is nil
-local isnil = fn.Curry(fn.Eq, 2)(nil)
--- Optional value, when filled in it must meet the conditions
-local optional = function(...) return fn.FOr{isnil, ...} end
--- Check the correctness of a model
-local checkModel = isstring
-
--- A table of which each element must meet condition f
-local tableOf = function(f) return function(tbl)
-    if not istable(tbl) then return false end
-    for k,v in pairs(tbl) do if not f(v) then return false end end
-    return true
-end end
-
--- Any of the given elements
-local oneOf = function(f) return fp{table.HasValue, f} end
-
--- A table that is nonempty, wrap around tableOf
-local nonempty = function(f) return function(tbl) return istable(tbl) and #tbl > 0 and f(tbl) end end
-
--- A value must be unique amongst all `kind`. Uses optional `hash` function to create custom hashes in the internal table
-local uniqueEntity = function(cmd, tbl)
-    for k, v in pairs(DarkRPEntities) do
-        if v.cmd ~= cmd then continue end
-        return false, "This entity does not have a unique command.", {"There must be some other end that has the same thing for 'cmd'.", "Fix this by changing the 'cmd' field of your entity to something else."}
-    end
-    return true
-end
-
-local uniqueJob = function(v, tbl)
-    local job = DarkRP.getJobByCommand(v)
-    if job then return false, "This job does not have a unique command.", {"There must be some other job that has the same command.", "Fix this by changing the 'command' of your job to something else."} end
-    return true
-end
-
--- Template for a correct job
-local requiredTeamItems = {
-    color       = ass(tableOf(isnumber), "The color must be a Color value.", {"Color values look like this: Color(r, g, b, a), where r, g, b and a are numbers between 0 and 255."}),
-    model       = ass(fn.FOr{checkModel, nonempty(tableOf(checkModel))}, "The model must either be a table of correct model strings or a single correct model string.", {"This error could happens when the model does not exist on the server.", "Are you sure the model path is right?", "Is the model from an addon that is not properly installed?"}),
-    description = ass(isstring, "The description must be a string."),
-    weapons     = ass(optional(tableOf(isstring)), "The weapons must be a valid table of strings.", {"Example: weapons = {\"med_kit\", \"weapon_bugbait\"},"}),
-    command     = ass(fn.FAnd{isstring, uniqueJob}, "The command must be a string."),
-    max         = ass(fn.FAnd{isnumber, fp{fn.Lte, 0}}, "The max must be a number greater than or equal to zero.", {"Zero means infinite.", "A decimal between 0 and 1 is seen as a percentage."}),
-    salary      = ass(fn.FAnd{isnumber, fp{fn.Lte, 0}}, "The salary must be a number greater than zero."),
-    admin       = ass(fn.FAnd{isnumber, fp{fn.Lte, 0}, fp{fn.Gte, 2}}, "The admin value must be a number greater than or equal to zero and smaller than three."),
-    vote        = ass(optional(isbool), "The vote must be either true or false."),
-
-    -- Optional advanced stuff
-    category              = ass(optional(isstring), "The category must be the name of an existing category!"),
-    sortOrder             = ass(optional(isnumber), "The sortOrder must be a number."),
-    buttonColor           = ass(optional(tableOf(isnumber)), "The buttonColor must be a Color value."),
-    label                 = ass(optional(isstring), "The label must be a valid string."),
-    ammo                  = ass(optional(tableOf(isnumber)), "The ammo must be a table containing numbers.", {"See example on http://wiki.darkrp.com/index.php/DarkRP:CustomJobFields"}),
-    hasLicense            = ass(optional(isbool), "The hasLicense must be either true or false."),
-    NeedToChangeFrom      = ass(optional(tableOf(isnumber), isnumber), "The NeedToChangeFrom must be either an existing team or a table of existing teams", {"Is there a job here that doesn't exist (anymore)?"}),
-    customCheck           = ass(optional(isfunction), "The customCheck must be a function."),
-    CustomCheckFailMsg    = ass(optional(isstring, isfunction), "The CustomCheckFailMsg must be either a string or a function."),
-    modelScale            = ass(optional(isnumber), "The modelScale must be a number."),
-    maxpocket             = ass(optional(isnumber), "The maxPocket must be a number."),
-    maps                  = ass(optional(tableOf(isstring)), "The maps value must be a table of valid map names."),
-    candemote             = ass(optional(isbool), "The candemote value must be either true or false."),
-    mayor                 = ass(optional(isbool), "The mayor value must be either true or false."),
-    chief                 = ass(optional(isbool), "The chief value must be either true or false."),
-    medic                 = ass(optional(isbool), "The medic value must be either true or false."),
-    cook                  = ass(optional(isbool), "The cook value must be either true or false."),
-    hobo                  = ass(optional(isbool), "The hobo value must be either true or false."),
-    playerClass           = ass(optional(isstring), "The playerClass must be a valid string."),
-    CanPlayerSuicide      = ass(optional(isfunction), "The CanPlayerSuicide must be a function."),
-    PlayerCanPickupWeapon = ass(optional(isfunction), "The PlayerCanPickupWeapon must be a function."),
-    PlayerDeath           = ass(optional(isfunction), "The PlayerDeath must be a function."),
-    PlayerLoadout         = ass(optional(isfunction), "The PlayerLoadout must be a function."),
-    PlayerSelectSpawn     = ass(optional(isfunction), "The PlayerSelectSpawn must be a function."),
-    PlayerSetModel        = ass(optional(isfunction), "The PlayerSetModel must be a function."),
-    PlayerSpawn           = ass(optional(isfunction), "The PlayerSpawn must be a function."),
-    PlayerSpawnProp       = ass(optional(isfunction), "The PlayerSpawnProp must be a function."),
-    RequiresVote          = ass(optional(isfunction), "The RequiresVote must be a function."),
-    ShowSpare1            = ass(optional(isfunction), "The ShowSpare1 must be a function."),
-    ShowSpare2            = ass(optional(isfunction), "The ShowSpare2 must be a function."),
-    canStartVote          = ass(optional(isfunction), "The canStartVote must be a function."),
-    canStartVoteReason    = ass(optional(isstring, isfunction), "The canStartVoteReason must be either a string or a function."),
-}
-
--- Template for correct shipment
-local validShipment = {
-    model    = ass(checkModel, "The model of the shipment must be a valid model.", {"This error could happens when the model does not exist on the server.", "Are you sure the model path is right?", "Is the model from an addon that is not properly installed?"}),
-    entity   = ass(isstring, "The entity of the shipment must be a string."),
-    price    = ass(function(v, tbl) return isnumber(v) or isfunction(tbl.getPrice) end, "The price must be an existing number or (for advanced users) the getPrice field must be a function."),
-    amount   = ass(fn.FAnd{isnumber, fp{fn.Lte, 0}}, "The amount must be a number greater than zero."),
-    separate = ass(optional(isbool), "the separate field must be either true or false."),
-    pricesep = ass(function(v, tbl) return not tbl.separate or isnumber(v) and v >= 0 end, "The pricesep must be a number greater than or equal to zero."),
-    allowed  = ass(optional(tableOf(isnumber), isnumber), "The allowed field must be either an existing team or a table of existing teams", {"Is there a job here that doesn't exist (anymore)?"}),
-
-    category           = ass(optional(isstring), "The category must be the name of an existing category!"),
-    sortOrder          = ass(optional(isnumber), "The sortOrder must be a number."),
-    buttonColor        = ass(optional(tableOf(isnumber)), "The buttonColor must be a Color value."),
-    label              = ass(optional(isstring), "The label must be a valid string."),
-    noship             = ass(optional(isbool), "The noship must be either true or false."),
-    shipmodel          = ass(optional(checkModel), "The shipmodel must be a valid model.", {"This error could happens when the model does not exist on the server.", "Are you sure the model path is right?", "Is the model from an addon that is not properly installed?"}),
-    customCheck        = ass(optional(isfunction), "The customCheck must be a function."),
-    CustomCheckFailMsg = ass(optional(isstring, isfunction), "The CustomCheckFailMsg must be either a string or a function."),
-    weight             = ass(optional(isnumber), "The weight must be a number."),
-    spareammo          = ass(optional(isnumber), "The spareammo must be a number."),
-    clip1              = ass(optional(isnumber), "The clip1 must be a number."),
-    clip2              = ass(optional(isnumber), "The clip2 must be a number."),
-    shipmentClass      = ass(optional(isstring), "The shipmentClass must be a string."),
-    onBought           = ass(optional(isfunction), "The onBought must be a function."),
-    getPrice           = ass(optional(isfunction), "The getPrice must be a function."),
-    spawn              = ass(optional(isfunction), "The spawn must be a function."),
-}
-
--- Template for correct vehicle
-local validVehicle = {
-    name     = ass(isstring, "The name of the vehicle must be a string."),
-    model    = ass(checkModel, "The model of the vehicle must be a valid model.", {"This error could happens when the model does not exist on the server.", "Are you sure the model path is right?", "Is the model from an addon that is not properly installed?"}),
-    price    = ass(function(v, tbl) return isnumber(v) or isfunction(tbl.getPrice) end, "The price must be an existing number or (for advanced users) the getPrice field must be a function."),
-    allowed  = ass(optional(tableOf(isnumber), isnumber), "The allowed field must be either an existing team or a table of existing teams", {"Is there a job here that doesn't exist (anymore)?"}),
-
-    category           = ass(optional(isstring), "The category must be the name of an existing category!"),
-    sortOrder          = ass(optional(isnumber), "The sortOrder must be a number."),
-    distance           = ass(optional(isnumber), "The distance must be a number."),
-    angle              = ass(optional(isangle), "The distance must be a valid Angle."),
-    buttonColor        = ass(optional(tableOf(isnumber)), "The buttonColor must be a Color value."),
-    label              = ass(optional(isstring), "The label must be a valid string."),
-    customCheck        = ass(optional(isfunction), "The customCheck must be a function."),
-    CustomCheckFailMsg = ass(optional(isstring, isfunction), "The CustomCheckFailMsg must be either a string or a function."),
-    getPrice           = ass(optional(isfunction), "The getPrice must be a function."),
-}
-
--- Template for correct entity
-local validEntity = {
-    ent   = ass(isstring, "The name of the entity must be a string."),
-    model = ass(checkModel, "The model of the entity must be a valid model.", {"This error could happens when the model does not exist on the server.", "Are you sure the model path is right?", "Is the model from an addon that is not properly installed?"}),
-    price = ass(function(v, tbl) return isnumber(v) or isfunction(tbl.getPrice) end, "The price must be an existing number or (for advanced users) the getPrice field must be a function."),
-    max   = ass(function(v, tbl) return isnumber(v) or isfunction(tbl.getMax) end, "The max must be an existing number or (for advanced users) the getMax field must be a function."),
-    cmd   = ass(fn.FAnd{isstring, uniqueEntity}, "The cmd must be a valid string."),
-    name  = ass(isstring, "The name must be a valid string."),
-
-    category           = ass(optional(isstring), "The category must be the name of an existing category!"),
-    sortOrder          = ass(optional(isnumber), "The sortOrder must be a number."),
-    buttonColor        = ass(optional(tableOf(isnumber)), "The buttonColor must be a Color value."),
-    label              = ass(optional(isstring), "The label must be a valid string."),
-    customCheck        = ass(optional(isfunction), "The customCheck must be a function."),
-    CustomCheckFailMsg = ass(optional(isstring, isfunction), "The CustomCheckFailMsg must be either a string or a function."),
-    getPrice           = ass(optional(isfunction), "The getPrice must be a function."),
-    spawn              = ass(optional(isfunction), "The spawn must be a function."),
-}
-
-local validAgenda = {
-    Title = ass(isstring, "The title must be a string."),
-    Manager = ass(fn.FOr{isnumber, nonempty(tableOf(isnumber))}, "The Manager must either be a single team or a non-empty table of existing teams.", {"Is there a job here that doesn't exist (anymore)?"}),
-    Listeners = ass(nonempty(tableOf(isnumber)), "The Listeners must be a non-empty table of existing teams.",
-        {
-            "Is there a job here that doesn't exist (anymore)?",
-            "Are you trying to have multiple manager jobs in this agenda? In that case you must put the list of manager jobs in curly braces.",
-            [[Like so: DarkRP.createAgenda("Some agenda", {TEAM_MANAGER1, TEAM_MANAGER2}, {TEAM_LISTENER1, TEAM_LISTENER2})]]
-        })
-}
-
-local validCategory = {
-    name                      = ass(isstring, "The name must be a string."),
-    categorises               = ass(oneOf{"jobs", "entities", "shipments", "weapons", "vehicles", "ammo"},
-        [[The categorises must be one of "jobs", "entities", "shipments", "weapons", "vehicles", "ammo"]],
-        {"Mind that this is case sensitive.", "Also mind the quotation marks."}),
-    startExpanded             = ass(isbool, "The startExpanded must be either true or false."),
-    color                     = ass(tableOf(isnumber), "The color must be a Color value."),
-    canSee                    = ass(optional(isfunction), "The canSee must be a function."),
-    sortOrder                 = ass(optional(isnumber), "The sortOrder must be a number."),
-}
-
--- Check template against actual implementation
-local env = {} -- environment used to be check propositions between multiple tables
-local function checkValid(tbl, requiredItems, oEnv) -- Allow override environment
-    for k,v in pairs(requiredItems) do
-        local correct, err, hints = tbl[v] ~= nil
-        if isfunction(v) then correct, err, hints = v(tbl[k], tbl, oEnv or env) end
-        err = err or string.format("Element '%s' is corrupt!", k)
-        if not correct then return correct, err, hints end
-    end
-
-    return true
-end
 
 -----------------------------------------------------------
 -- Job commands --
@@ -205,110 +11,57 @@ local function declareTeamCommands(CTeam)
         end
     end
 
+    local chatcommandCondition = function(ply)
+        local plyTeam = ply:Team()
+
+        if plyTeam == k then return false end
+        if CTeam.admin == 1 and not ply:IsAdmin() or CTeam.admin == 2 and not ply:IsSuperAdmin() then return false end
+        if isnumber(CTeam.NeedToChangeFrom) and plyTeam ~= CTeam.NeedToChangeFrom then return false end
+        if istable(CTeam.NeedToChangeFrom) and not table.HasValue(CTeam.NeedToChangeFrom, plyTeam) then return false end
+        if CTeam.customCheck and CTeam.customCheck(ply) == false then return false end
+        if ply:isArrested() then return false end
+        if CTeam.max ~= 0 and ((CTeam.max % 1 == 0 and team.NumPlayers(k) >= CTeam.max) or (CTeam.max % 1 ~= 0 and (team.NumPlayers(k) + 1) / #player.GetAll() > CTeam.max)) then return false end
+        if ply.LastJob and 10 - (CurTime() - ply.LastJob) >= 0 then return false end
+        if ply.LastVoteCop and CurTime() - ply.LastVoteCop < 80 then return false end
+
+        return true
+    end
+
     if CTeam.vote or CTeam.RequiresVote then
         DarkRP.declareChatCommand{
             command = "vote" .. CTeam.command,
             description = "Vote to become " .. CTeam.name .. ".",
             delay = 1.5,
-            condition = fn.FAnd
-            {
-                fn.If(
-                    fn.Curry(isfunction, 2)(CTeam.RequiresVote),
-                    fn.Curry(fn.Flip(fn.FOr{fn.Curry(fn.Const, 2)(CTeam.RequiresVote), fn.Curry(fn.Const, 2)(-1)}()), 2)(k),
-                    fn.Curry(fn.Const, 2)(true)
-                )(),
-                fn.If(
-                    fn.Curry(isnumber, 2)(CTeam.NeedToChangeFrom),
-                    fn.Compose{fn.Curry(fn.Eq, 2)(CTeam.NeedToChangeFrom), plyMeta.Team},
-                    fn.If(
-                        fn.Curry(istable, 2)(CTeam.NeedToChangeFrom),
-                        fn.Compose{fn.Curry(table.HasValue, 2)(CTeam.NeedToChangeFrom), plyMeta.Team},
-                        fn.Curry(fn.Const, 2)(true)
-                    )()
-                )(),
-                fn.If(
-                    fn.Curry(isfunction, 2)(CTeam.customCheck),
-                    CTeam.customCheck,
-                    fn.Curry(fn.Const, 2)(true)
-                )(),
-                fn.Compose{fn.Curry(fn.Neq, 2)(k), plyMeta.Team},
-                fn.FOr {
-                    fn.Curry(fn.Lte, 3)(CTeam.admin)(0),
-                    fn.FAnd{fn.Curry(fn.Eq, 3)(CTeam.admin)(1), plyMeta.IsAdmin},
-                    fn.FAnd{fn.Curry(fn.Gte, 3)(CTeam.admin)(2), plyMeta.IsSuperAdmin}
-                }
-            }
+            condition =
+                function(ply)
+                    if CTeam.RequiresVote and not CTeam.RequiresVote(ply, k) then return false end
+                    if CTeam.canStartVote and not CTeam.canStartVote(ply) then return false end
+
+                    return chatcommandCondition(ply)
+                end
         }
 
         DarkRP.declareChatCommand{
             command = CTeam.command,
             description = "Become " .. CTeam.name .. " and skip the vote.",
             delay = 1.5,
-            condition = fn.FAnd {
-                fn.FOr {
-                    fn.FAnd {
-                        fn.FOr {
-                            fn.Curry(fn.Lte, 3)(CTeam.admin)(0),
-                            fn.FAnd{fn.Curry(fn.Eq, 3)(CTeam.admin)(1), plyMeta.IsAdmin},
-                            fn.FAnd{fn.Curry(fn.Gte, 3)(CTeam.admin)(2), plyMeta.IsSuperAdmin}
-                        },
-                        fn.If(
-                            fn.Curry(isfunction, 2)(CTeam.RequiresVote),
-                            fn.Curry(fn.Flip(fn.FOr{fn.Curry(fn.Const, 2)(CTeam.RequiresVote), fn.Curry(fn.Const, 2)(-1)}()), 2)(k),
-                            fn.FOr {
-                                fn.FAnd{fn.Curry(fn.Eq, 3)(CTeam.admin)(0), plyMeta.IsAdmin},
-                                fn.FAnd{fn.Curry(fn.Eq, 3)(CTeam.admin)(1), plyMeta.IsSuperAdmin}
-                            }
-                        )()
-                    }
-                },
-                fn.Compose{fn.Not, plyMeta.isArrested},
-                fn.If(
-                    fn.Curry(isnumber, 2)(CTeam.NeedToChangeFrom),
-                    fn.Compose{fn.Curry(fn.Eq, 2)(CTeam.NeedToChangeFrom), plyMeta.Team},
-                    fn.If(
-                        fn.Curry(istable, 2)(CTeam.NeedToChangeFrom),
-                        fn.Compose{fn.Curry(table.HasValue, 2)(CTeam.NeedToChangeFrom), plyMeta.Team},
-                        fn.Curry(fn.Const, 2)(true)
-                    )()
-                )(),
-                fn.If(
-                    fn.Curry(isfunction, 2)(CTeam.customCheck),
-                    CTeam.customCheck,
-                    fn.Curry(fn.Const, 2)(true)
-                )(),
-                fn.Compose{fn.Curry(fn.Neq, 2)(k), plyMeta.Team}
-            }
+            condition =
+                function(ply)
+                    local requiresVote = CTeam.RequiresVote and CTeam.RequiresVote(ply, k)
+
+                    if requiresVote then return false end
+                    if requiresVote ~= false and CTeam.admin == 0 and not ply:IsAdmin() or CTeam.admin == 1 and not ply:IsSuperAdmin() then return false end
+                    if CTeam.canStartVote and not CTeam.canStartVote(ply) then return false end
+
+                    return chatcommandCondition(ply)
+                end
         }
     else
         DarkRP.declareChatCommand{
             command = CTeam.command,
             description = "Become " .. CTeam.name .. ".",
             delay = 1.5,
-            condition = fn.FAnd
-            {
-                fn.Compose{fn.Not, plyMeta.isArrested},
-                fn.If(
-                    fn.Curry(isnumber, 2)(CTeam.NeedToChangeFrom),
-                    fn.Compose{fn.Curry(fn.Eq, 2)(CTeam.NeedToChangeFrom), plyMeta.Team},
-                    fn.If(
-                        fn.Curry(istable, 2)(CTeam.NeedToChangeFrom),
-                        fn.Compose{fn.Curry(table.HasValue, 2)(CTeam.NeedToChangeFrom), plyMeta.Team},
-                        fn.Curry(fn.Const, 2)(true)
-                    )()
-                )(),
-                fn.If(
-                    fn.Curry(isfunction, 2)(CTeam.customCheck),
-                    CTeam.customCheck,
-                    fn.Curry(fn.Const, 2)(true)
-                )(),
-                fn.Compose{fn.Curry(fn.Neq, 2)(k), plyMeta.Team},
-                fn.FOr {
-                    fn.Curry(fn.Lte, 3)(CTeam.admin)(0),
-                    fn.FAnd{fn.Curry(fn.Eq, 3)(CTeam.admin)(1), plyMeta.IsAdmin},
-                    fn.FAnd{fn.Curry(fn.Gte, 3)(CTeam.admin)(2), plyMeta.IsSuperAdmin}
-                }
-            }
+            condition = chatcommandCondition
         }
     end
 end
@@ -372,8 +125,10 @@ local function addTeamCommands(CTeam, max)
                 return ""
             end
 
-            if not ply:changeAllowed(k) then
-                DarkRP.notify(ply, 1, 4, DarkRP.getPhrase("unable", "/vote" .. CTeam.command, DarkRP.getPhrase("banned_or_demoted")))
+            local allowed, time = ply:changeAllowed(k)
+            if not allowed then
+                local notif = time and DarkRP.getPhrase("have_to_wait",  math.ceil(time), "/job, " .. DarkRP.getPhrase("banned_or_demoted")) or DarkRP.getPhrase("unable", team.GetName(k), DarkRP.getPhrase("banned_or_demoted"))
+                DarkRP.notify(ply, 1, 4, notif)
 
                 return ""
             end
@@ -501,18 +256,19 @@ local function addTeamCommands(CTeam, max)
 
         local target = DarkRP.findPlayer(args[1])
 
-        if (target) then
-            target:changeTeam(k, true)
-            local nick
-            if (ply:EntIndex() ~= 0) then
-                nick = ply:Nick()
-            else
-                nick = "Console"
-            end
-            DarkRP.notify(target, 0, 4, DarkRP.getPhrase("x_made_you_a_y", nick, CTeam.name))
-        else
+        if not target then
             DarkRP.printConsoleMessage(ply, DarkRP.getPhrase("could_not_find", tostring(args[1])))
+            return
         end
+
+        target:changeTeam(k, true)
+        local nick
+        if (ply:EntIndex() ~= 0) then
+            nick = ply:Nick()
+        else
+            nick = "Console"
+        end
+        DarkRP.notify(target, 0, 4, DarkRP.getPhrase("x_made_you_a_y", nick, CTeam.name))
     end)
 end
 
@@ -521,22 +277,17 @@ local function addEntityCommands(tblEnt)
         command = tblEnt.cmd,
         description = "Purchase a " .. tblEnt.name,
         delay = 2,
-        condition = fn.FAnd
-        {
-            fn.Compose{fn.Not, plyMeta.isArrested},
-            fn.If(
-                fn.Curry(istable, 2)(tblEnt.allowed),
-                fn.Compose{fn.Curry(table.HasValue, 2)(tblEnt.allowed), plyMeta.Team},
-                fn.Curry(fn.Const, 2)(true)
-            )(),
-            fn.If(
-                fn.Curry(isfunction, 2)(tblEnt.customCheck),
-                tblEnt.customCheck,
-                fn.Curry(fn.Const, 2)(true)
-            )(),
-            fn.Curry(fn.Flip(plyMeta.canAfford), 2)(tblEnt.price)
-        }
+        condition =
+            function(ply)
+                if ply:isArrested() then return false end
+                if istable(tblEnt.allowed) and not table.HasValue(tblEnt.allowed, ply:Team()) then return false end
+                if not ply:canAfford(tblEnt.price) then return false end
+                if tblEnt.customCheck and tblEnt.customCheck(ply) == false then return false end
+
+                return true
+            end
     }
+
     if CLIENT then return end
 
     -- Default spawning function of an entity
@@ -563,7 +314,7 @@ local function addEntityCommands(tblEnt)
     local function buythis(ply, args)
         if ply:isArrested() then return "" end
         if type(tblEnt.allowed) == "table" and not table.HasValue(tblEnt.allowed, ply:Team()) then
-            DarkRP.notify(ply, 1, 4, DarkRP.getPhrase("incorrect_job", tblEnt.cmd))
+            DarkRP.notify(ply, 1, 4, DarkRP.getPhrase("incorrect_job", tblEnt.name))
             return ""
         end
 
@@ -576,7 +327,7 @@ local function addEntityCommands(tblEnt)
         end
 
         if ply:customEntityLimitReached(tblEnt) then
-            DarkRP.notify(ply, 1, 4, DarkRP.getPhrase("limit", tblEnt.cmd))
+            DarkRP.notify(ply, 1, 4, DarkRP.getPhrase("limit", tblEnt.name))
             return ""
         end
 
@@ -585,7 +336,7 @@ local function addEntityCommands(tblEnt)
         local cost = price or tblEnt.getPrice and tblEnt.getPrice(ply, tblEnt.price) or tblEnt.price
 
         if not ply:canAfford(cost) then
-            DarkRP.notify(ply, 1, 4, DarkRP.getPhrase("cant_afford", tblEnt.cmd))
+            DarkRP.notify(ply, 1, 4, DarkRP.getPhrase("cant_afford", tblEnt.name))
             return ""
         end
 
@@ -626,7 +377,24 @@ DarkRP.getJobByCommand = function(cmd)
     if not jobByCmd[cmd] then return nil, nil end
     return RPExtraTeams[jobByCmd[cmd]], jobByCmd[cmd]
 end
-plyMeta.getJobTable = fn.FOr{fn.Compose{fn.Curry(fn.Flip(fn.GetValue), 2)(RPExtraTeams), plyMeta.Team}, fn.Curry(fn.Id, 2)({})}
+plyMeta.getJobTable = function(ply)
+    local tbl = RPExtraTeams[ply:Team()]
+    -- don't error when the player has not fully joined yet
+    if not tbl and (ply.DarkRPInitialised or ply.DarkRPDataRetrievalFailed) then
+        DarkRP.error(
+            string.format("There is a player with an invalid team!\n\nThe player's name is %s, their team number is \"%s\", which has the name \"%s\"",
+                ply:EntIndex() == 0 and "Console" or IsValid(ply) and ply:Nick() or "unknown",
+                ply:Team(),
+                team.GetName(ply:Team())),
+            1,
+            {
+                "It is the server owner's responsibility to figure out why that player has no valid team.",
+                "This error is very likely to be caused by an earlier error. If you don't see any errors in your own console, look at the server console."
+            }
+        )
+    end
+    return tbl
+end
 local jobCount = 0
 function DarkRP.createJob(Name, colorOrTable, model, Description, Weapons, command, maximum_amount_of_this_class, Salary, admin, Vote, Haslicense, NeedToChangeFrom, CustomCheck)
     local tableSyntaxUsed = not IsColor(colorOrTable)
@@ -642,8 +410,8 @@ function DarkRP.createJob(Name, colorOrTable, model, Description, Weapons, comma
     -- Disabled job
     if DarkRP.DARKRP_LOADING and DarkRP.disabledDefaults["jobs"][CustomTeam.command] then return end
 
-    local valid, err, hints = checkValid(CustomTeam, requiredTeamItems)
-    if not valid then DarkRP.error(string.format("Corrupt team: %s!\n%s", CustomTeam.name or "", err), 3, hints) end
+    local valid, err, hints = DarkRP.validateJob(CustomTeam)
+    if not valid then DarkRP.error(string.format("Corrupt team: %s!\n%s", CustomTeam.name or "", err), 2, hints) end
 
     jobCount = jobCount + 1
     CustomTeam.team = jobCount
@@ -704,10 +472,15 @@ function DarkRP.removeJob(i)
 end
 
 RPExtraTeamDoors = {}
+RPExtraTeamDoorIDs = {}
+local maxTeamDoorID = 0
 function DarkRP.createEntityGroup(name, ...)
     if DarkRP.DARKRP_LOADING and DarkRP.disabledDefaults["doorgroups"][name] then return end
     RPExtraTeamDoors[name] = {...}
     RPExtraTeamDoors[name].name = name
+
+    maxTeamDoorID = maxTeamDoorID + 1
+    RPExtraTeamDoorIDs[name] = maxTeamDoorID
 end
 AddDoorGroup = DarkRP.createEntityGroup
 
@@ -753,8 +526,8 @@ function DarkRP.createShipment(name, model, entity, price, Amount_of_guns_in_one
 
     if DarkRP.DARKRP_LOADING and DarkRP.disabledDefaults["shipments"][customShipment.name] then return end
 
-    local valid, err, hints = checkValid(customShipment, validShipment)
-    if not valid then DarkRP.error(string.format("Corrupt shipment: %s!\n%s", name or "", err), 3, hints) end
+    local valid, err, hints = DarkRP.validateShipment(customShipment)
+    if not valid then DarkRP.error(string.format("Corrupt shipment: %s!\n%s", name or "", err), 2, hints) end
 
     customShipment.spawn = customShipment.spawn and fp{DarkRP.simplerrRun, customShipment.spawn}
     customShipment.allowed = isnumber(customShipment.allowed) and {customShipment.allowed} or customShipment.allowed
@@ -788,10 +561,10 @@ function DarkRP.createVehicle(Name_of_vehicle, model, price, Jobs_that_can_buy_i
         if string.lower(k) == string.lower(vehicle.name) then found = true break end
     end
 
-    local valid, err, hints = checkValid(vehicle, validVehicle)
-    if not valid then DarkRP.error(string.format("Corrupt vehicle: %s!\n%s", vehicle.name or "", err), 3, hints) end
+    local valid, err, hints = DarkRP.validateVehicle(vehicle)
+    if not valid then DarkRP.error(string.format("Corrupt vehicle: %s!\n%s", vehicle.name or "", err), 2, hints) end
 
-    if not found then DarkRP.error("Vehicle invalid: " .. vehicle.name .. ". Unknown vehicle name.", 3) end
+    if not found then DarkRP.error("Vehicle invalid: " .. vehicle.name .. ". Unknown vehicle name.", 2) end
 
     vehicle.customCheck = vehicle.customCheck and fp{DarkRP.simplerrRun, vehicle.customCheck}
     vehicle.CustomCheckFailMsg = isfunction(vehicle.CustomCheckFailMsg) and fp{DarkRP.simplerrRun, vehicle.CustomCheckFailMsg} or vehicle.CustomCheckFailMsg
@@ -803,9 +576,9 @@ AddCustomVehicle = DarkRP.createVehicle
 
 DarkRP.removeVehicle = fp{removeCustomItem, CustomVehicles, "vehicles", "onVehicleRemoved", true}
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Decides whether a custom job or shipmet or whatever can be used in a certain map
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 function GM:CustomObjFitsMap(obj)
     if not obj or not obj.maps then return true end
 
@@ -832,8 +605,8 @@ function DarkRP.createEntity(name, entity, model, price, max, command, classes, 
         tblEnt.allowed = {tblEnt.allowed}
     end
 
-    local valid, err, hints = checkValid(tblEnt, validEntity)
-    if not valid then DarkRP.error(string.format("Corrupt entity: %s!\n%s", name or "", err), 3, hints) end
+    local valid, err, hints = DarkRP.validateEntity(tblEnt)
+    if not valid then DarkRP.error(string.format("Corrupt entity: %s!\n%s", name or "", err), 2, hints) end
 
     tblEnt.customCheck = tblEnt.customCheck and fp{DarkRP.simplerrRun, tblEnt.customCheck}
     tblEnt.CustomCheckFailMsg = isfunction(tblEnt.CustomCheckFailMsg) and fp{DarkRP.simplerrRun, tblEnt.CustomCheckFailMsg} or tblEnt.CustomCheckFailMsg
@@ -873,14 +646,14 @@ function DarkRP.createAgenda(Title, Manager, Listeners)
     local agenda = {Manager = Manager, Title = Title, Listeners = Listeners, ManagersByKey = {}}
     agenda.default = DarkRP.DARKRP_LOADING
 
-    local valid, err, hints = checkValid(agenda, validAgenda)
+    local valid, err, hints = DarkRP.validateAgenda(agenda)
     if not valid then DarkRP.error(string.format("Corrupt agenda: %s!\n%s", agenda.Title or "", err), 2, hints) end
 
-    for k,v in pairs(Listeners) do
+    for k,v in pairs(agenda.Listeners) do
         agendas[v] = agenda
     end
 
-    for k,v in pairs(istable(Manager) and Manager or {Manager}) do
+    for k,v in pairs(istable(agenda.Manager) and agenda.Manager or {agenda.Manager}) do
         agendas[v] = agenda
         DarkRPAgendas[v] = agenda -- backwards compat
         agenda.ManagersByKey[v] = true
@@ -1040,7 +813,7 @@ local function insertCategory(destination, tbl)
 end
 
 function DarkRP.createCategory(tbl)
-    local valid, err, hints = checkValid(tbl, validCategory)
+    local valid, err, hints = DarkRP.validateCategory(tbl)
     if not valid then DarkRP.error(string.format("Corrupt category: %s!\n%s", tbl.name or "", err), 2, hints) end
     tbl.members = {}
 
@@ -1103,7 +876,7 @@ local function mergeCategories(customs, catKind, path)
         local catName = v.default and GAMEMODE.Config.CategoryOverride[catKind][v.name] or v.category or "Other"
         local cat = catByName[catName]
         if not cat then
-            DarkRP.errorNoHalt(string.format([[The category of "%s" ("%s") does not exist!]], v.name, catName), 1, {
+            DarkRP.errorNoHalt(string.format([[The category of "%s" ("%s") does not exist!]], v.name, catName), 3, {
                 "Make sure the category is created with DarkRP.createCategory.",
                 "The category name is case sensitive!",
                 "Categories must be created before DarkRP finished loading."

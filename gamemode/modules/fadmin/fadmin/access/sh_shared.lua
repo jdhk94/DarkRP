@@ -7,15 +7,20 @@ FAdmin.Access.ADMIN[0] = "user"
 FAdmin.Access.Groups = FAdmin.Access.Groups or {}
 FAdmin.Access.Privileges = FAdmin.Access.Privileges or {}
 
-function FAdmin.Access.AddGroup(name, admin_access/*0 = not admin, 1 = admin, 2 = superadmin*/, privs, immunity)
+function FAdmin.Access.AddGroup(name, admin_access --[[0 = not admin, 1 = admin, 2 = superadmin]], privs, immunity, fromCAMI)
     FAdmin.Access.Groups[name] = FAdmin.Access.Groups[name] or {ADMIN = admin_access, PRIVS = privs or {}, immunity = immunity}
 
     -- Register custom usergroups with CAMI
-    if name ~= "user" and name ~= "admin" and name ~= "superadmin" then
+    if name ~= "user" and name ~= "admin" and name ~= "superadmin" and not fromCAMI then
         CAMI.RegisterUsergroup({
             Name = name,
             Inherits = FAdmin.Access.ADMIN[admin_access]
         }, "FAdmin")
+    end
+
+    -- Add newly created privileges on server reload
+    for p, _ in pairs(privs or {}) do
+        FAdmin.Access.Groups[name].PRIVS[p] = true
     end
 
     if not SERVER then return end
@@ -46,11 +51,12 @@ function FAdmin.Access.OnUsergroupRegistered(usergroup, source)
     if source == "FAdmin" then return end
 
     local inheritRoot = CAMI.InheritanceRoot(usergroup.Inherits)
-    local admin_access = table.KeyFromValue(FAdmin.Access.ADMIN, inheritRoot)
+    local admin_access = table.KeyFromValue(FAdmin.Access.ADMIN, inheritRoot) or 1
 
     -- Add groups registered to CAMI to FAdmin. Assume privileges from either the usergroup it inherits or its inheritance root.
     -- Immunity is unknown and can be set by the user later. FAdmin immunity only applies to FAdmin anyway.
-    FAdmin.Access.AddGroup(usergroup.Name, admin_access, FAdmin.Access.Groups[usergroup.Inherits] or FAdmin.Access.Groups[inheritRoot] or {}, nil, true)
+    local parent = FAdmin.Access.Groups[usergroup.Inherits] or FAdmin.Access.Groups[inheritRoot] or {}
+    FAdmin.Access.AddGroup(usergroup.Name, admin_access, parent.PRIVS or {}, parent.immunity or 10, true)
 end
 
 
@@ -69,10 +75,18 @@ function FAdmin.Access.OnUsergroupUnregistered(usergroup, source)
 end
 
 function FAdmin.Access.RemoveGroup(ply, cmd, args)
-    if not FAdmin.Access.PlayerHasPrivilege(ply, "SetAccess") then FAdmin.Messages.SendMessage(ply, 5, "No access!") return false end
+    if not FAdmin.Access.PlayerHasPrivilege(ply, "ManageGroups") then FAdmin.Messages.SendMessage(ply, 5, "No access!") return false end
     if not args[1] then return false end
 
+    local plyGroup = FAdmin.Access.Groups[ply:EntIndex() == 0 and "superadmin" or ply:GetUserGroup()]
+
     if not FAdmin.Access.Groups[args[1]] or table.HasValue({"superadmin", "admin", "user"}, string.lower(args[1])) then return true, args[1] end
+
+    -- Setting a group with a higher rank than one's own
+    if (not plyGroup or FAdmin.Access.Groups[args[1]].immunity > plyGroup.immunity) and not FAdmin.Access.PlayerIsHost(ply) then
+        FAdmin.Messages.SendMessage(ply, 5, "You're not allowed to remove usergroups with a higher rank than your own")
+        return false
+    end
 
     CAMI.UnregisterUsergroup(args[1], "FAdmin")
 
@@ -87,7 +101,7 @@ function PLAYER:IsAdmin(...)
 
     if not FAdmin or not FAdmin.Access or not FAdmin.Access.Groups or not FAdmin.Access.Groups[usergroup] then return oldplyIsAdmin(self, ...) or game.SinglePlayer() end
 
-    if (FAdmin.Access.Groups[usergroup] and FAdmin.Access.Groups[usergroup].ADMIN >= 1/*1 = admin*/) or (self.IsListenServerHost and self:IsListenServerHost()) then
+    if (FAdmin.Access.Groups[usergroup] and FAdmin.Access.Groups[usergroup].ADMIN >= 1 --[[1 = admin]]) or (self.IsListenServerHost and self:IsListenServerHost()) then
         return true
     end
 
@@ -100,7 +114,7 @@ local oldplyIsSuperAdmin = PLAYER.IsSuperAdmin
 function PLAYER:IsSuperAdmin(...)
     local usergroup = self:GetUserGroup()
     if not FAdmin or not FAdmin.Access or not FAdmin.Access.Groups or not FAdmin.Access.Groups[usergroup] then return oldplyIsSuperAdmin(self, ...) or game.SinglePlayer() end
-    if (FAdmin.Access.Groups[usergroup] and FAdmin.Access.Groups[usergroup].ADMIN >= 2/*2 = superadmin*/) or (self.IsListenServerHost and self:IsListenServerHost()) then
+    if (FAdmin.Access.Groups[usergroup] and FAdmin.Access.Groups[usergroup].ADMIN >= 2 --[[2 = superadmin]]) or (self.IsListenServerHost and self:IsListenServerHost()) then
         return true
     end
     if CLIENT and tonumber(self:FAdmin_GetGlobal("FAdmin_admin")) and self:FAdmin_GetGlobal("FAdmin_admin") >= 2 then return true end
@@ -129,9 +143,13 @@ hook.Add("CAMI.OnPrivilegeUnregistered", "FAdmin", function(privilege)
     FAdmin.Access.Privileges[privilege.Name] = nil
 end)
 
+function FAdmin.Access.PlayerIsHost(ply)
+    return ply:EntIndex() == 0 or game.SinglePlayer() or (ply.IsListenServerHost and ply:IsListenServerHost())
+end
+
 function FAdmin.Access.PlayerHasPrivilege(ply, priv, target, ignoreImmunity)
     -- This is the server console
-    if ply:EntIndex() == 0 or game.SinglePlayer() or (ply.IsListenServerHost and ply:IsListenServerHost()) then return true end
+    if FAdmin.Access.PlayerIsHost(ply) then return true end
     -- Privilege does not exist
     if not FAdmin.Access.Privileges[priv] then return ply:IsAdmin() end
 
@@ -218,11 +236,22 @@ hook.Add("CAMI.SteamIDHasAccess", "FAdmin", function(actorSteam, privilegeName, 
 end)
 
 FAdmin.StartHooks["AccessFunctions"] = function()
+    FAdmin.Messages.RegisterNotification{
+        name = "setaccess",
+        hasTarget = true,
+        message = {"instigator", " set the usergroup of ", "targets", " to ", "extraInfo.1"},
+        receivers = "everyone",
+        writeExtraInfo = function(i) net.WriteString(i[1]) end,
+        readExtraInfo = function() return {net.ReadString()} end,
+        extraInfoColors = {Color(255, 102, 0)}
+    }
+
     FAdmin.Access.AddPrivilege("SetAccess", 3) -- AddPrivilege is shared, run on both client and server
+    FAdmin.Access.AddPrivilege("ManagePrivileges", 3)
+    FAdmin.Access.AddPrivilege("ManageGroups", 3)
     FAdmin.Access.AddPrivilege("SeeAdmins", 1)
     FAdmin.Commands.AddCommand("RemoveGroup", FAdmin.Access.RemoveGroup)
 
-    local printPlyGroup = function(ply) print(ply:Nick(), "\t|\t", ply:GetUserGroup()) end
     FAdmin.Commands.AddCommand("Admins", function(ply)
         if not FAdmin.Access.PlayerHasPrivilege(ply, "SeeAdmins") then return false end
         for k,v in pairs(player.GetAll()) do

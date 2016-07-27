@@ -1,6 +1,6 @@
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Vote/become job button
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local PANEL = {}
 
 function PANEL:Init()
@@ -31,9 +31,9 @@ end
 
 derma.DefineControl("F4MenuJobBecomeButton", "", PANEL, "DButton")
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Icon for the model choose panel
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 PANEL = {}
 
 AccessorFunc(PANEL, "selected", "Selected", FORCE_BOOL)
@@ -85,9 +85,9 @@ end
 
 derma.DefineControl("F4MenuChooseJobModelIcon", "", PANEL, "DButton")
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Choose model panel
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 PANEL = {}
 
 function PANEL:Rebuild()
@@ -134,12 +134,14 @@ function PANEL:Init()
     self.leftButton:SetWide(40)
     self.leftButton:Dock(LEFT)
     self.leftButton.DoClick = function(btn) self:setScroll(self:getScroll() - 1) end
+    self.leftButton.DoDoubleClick = self.leftButton.DoClick
 
     self.rightButton = vgui.Create("F4MenuJobBecomeButton", self)
     self.rightButton:SetText(">")
     self.rightButton:SetWide(40)
     self.rightButton:Dock(RIGHT)
     self.rightButton.DoClick = function(btn) self:setScroll(self:getScroll() + 1) end
+    self.rightButton.DoDoubleClick = self.rightButton.DoClick
 
     self.iconList = vgui.Create("DPanelList", self)
 
@@ -189,9 +191,9 @@ end
 
 derma.DefineControl("F4MenuChooseJobModel", "", PANEL, "DPanel")
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Left panel for the jobs
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 PANEL = {}
 
 function PANEL:Init()
@@ -217,9 +219,9 @@ end
 
 derma.DefineControl("F4EmptyPanel", "", PANEL, "DPanelList")
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Right panel for the jobs
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 PANEL = {}
 
 function PANEL:Init()
@@ -307,7 +309,7 @@ end
 function PANEL:PerformLayout()
     local text = DarkRP.textWrap(DarkRP.deLocalise(self.job.description or ""):gsub('\t', ''), "Roboto Light", self:GetWide() - 43)
     surface.SetFont("Roboto Light")
-    local w, h = surface.GetTextSize(text)
+    local _, h = surface.GetTextSize(text)
     self.BaseClass.PerformLayout(self)
 
     self.innerPanel:SetPos(3, 3)
@@ -320,9 +322,9 @@ end
 derma.DefineControl("F4JobsPanelRight", "", PANEL, "F4EmptyPanel")
 
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Jobs panel
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 PANEL = {}
 
 function PANEL:Init()

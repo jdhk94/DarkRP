@@ -42,7 +42,7 @@ local function updatePrivs()
         canCleanup = b
     end)
 end
-timer.Simple(0, updatePrivs) -- Update privs after admin mods have loaded
+hook.Add("InitPostEntity", "FPP_Menu", updatePrivs)
 
 function FPP.AdminMenu(Panel)
     updatePrivs()
@@ -159,22 +159,36 @@ function FPP.AdminMenu(Panel)
     end
 
     local function addsldr(max, command, text, plist, decimals)
+        local label = plist:Add("DLabel")
+        label:SetText(text)
+        label:SetTextColor(Color(0, 0, 0, 255))
+        label:SizeToContents()
+
         local sldr = plist:Add("DNumSlider")
+        sldr.Label:SetVisible(false)
         sldr:SetMinMax(0, max)
         decimals = decimals or 1
         sldr:SetDecimals(decimals)
-        sldr:SetText(text)
         sldr:SetDark(true)
         sldr:SetValue(FPP.Settings[command[1]][command[2]])
         function sldr.Slider:OnMouseReleased()
-            self:SetDragging( false )
-            self:MouseCapture( false )
+            self:SetDragging(false)
+            self:MouseCapture(false)
             if not canEditSettings then
                 sldr:SetValue(FPP.Settings[command[1]][command[2]])
                 return
             end
             RunConsoleCommand("FPP_Setting", command[1], command[2], sldr:GetValue())
         end
+
+        function sldr.TextArea:OnEnter()
+            if not canEditSettings then
+                sldr:SetValue(FPP.Settings[command[1]][command[2]])
+                return
+            end
+            RunConsoleCommand("FPP_Setting", command[1], command[2], sldr:GetValue())
+        end
+
         local KnobMouseReleased = sldr.Slider.Knob.OnMouseReleased
         function sldr.Slider.Knob:OnMouseReleased(...)
             KnobMouseReleased(self, ...)
@@ -186,7 +200,7 @@ function FPP.AdminMenu(Panel)
     addchk("Freeze disconnected players's entities", {"FPP_GLOBALSETTINGS1", "freezedisconnected"}, general)
     addchk("Cleanup disconnected players's entities", {"FPP_GLOBALSETTINGS1", "cleanupdisconnected"}, general)
     addchk("Cleanup admin's entities on disconnect", {"FPP_GLOBALSETTINGS1", "cleanupadmin"}, general)
-    addsldr(300, {"FPP_GLOBALSETTINGS1", "cleanupdisconnectedtime"}, "Deletion time", general, 0)
+    addsldr(600, {"FPP_GLOBALSETTINGS1", "cleanupdisconnectedtime"}, "Deletion time", general, 0)
     addchk("Anti E2 mingery (mass killing with E2)", {"FPP_GLOBALSETTINGS1", "antie2minge"}, general)
 
     local delnow = general:Add("DButton")
@@ -267,6 +281,7 @@ function FPP.AdminMenu(Panel)
     addchk("Admins can use world entities", {"FPP_PLAYERUSE1", "adminworldprops"}, playeruse)
     addchk("People can use blocked entities", {"FPP_PLAYERUSE1", "canblocked"}, playeruse)
     addchk("Admins can use blocked entities", {"FPP_PLAYERUSE1", "admincanblocked"}, playeruse)
+    addchk("The blocked list is a white list", {"FPP_PLAYERUSE1", "iswhitelist"}, playeruse)
     addblock(playeruse, "PlayerUse1")
 
     local _, damage = MakeOption("Entity damage options")
@@ -615,36 +630,39 @@ function FPP.AdminMenu(Panel)
     AdminPanel:Dock(FILL)
 end
 
-RetrieveBlockedModels = function(um)
-    local model = um:ReadString()
+RetrieveBlockedModels = function(len)
     if not ShowBlockedModels then return end
+    local data = net.ReadData(len)
 
-    local Icon = vgui.Create("SpawnIcon", ShowBlockedModels.pan)
-    Icon:SetModel(model, 1)
-    Icon:SetSize(64, 64)
-    Icon.DoClick = function()
-        local menu = DermaMenu()
-        menu:AddOption("Remove from FPP blocked models list", function() -- I use a DMenu so people don't accidentally click the wrong icon and go FFFUUU
-            RunConsoleCommand("FPP_RemoveBlockedModel", model)
-            Icon:Remove()
-            ShowBlockedModels.pan:InvalidateLayout()
-        end)
-        menu:Open()
+    local models = string.Explode('\0', util.Decompress(data))
+
+    for _, model in pairs(models) do
+        local Icon = vgui.Create("SpawnIcon", ShowBlockedModels.pan)
+        Icon:SetModel(model, 1)
+        Icon:SetSize(64, 64)
+        Icon.DoClick = function()
+            local menu = DermaMenu()
+            menu:AddOption("Remove from FPP blocked models list", function() -- I use a DMenu so people don't accidentally click the wrong icon and go FFFUUU
+                RunConsoleCommand("FPP_RemoveBlockedModel", model)
+                Icon:Remove()
+                ShowBlockedModels.pan:InvalidateLayout()
+            end)
+            menu:Open()
+        end
+        ShowBlockedModels.pan:AddItem(Icon)
     end
-    ShowBlockedModels.pan:AddItem(Icon)
 end
-usermessage.Hook("FPP_BlockedModel", RetrieveBlockedModels)
+net.Receive("FPP_BlockedModels", RetrieveBlockedModels)
 
 RetrieveRestrictedTool = function(um)
     local tool, admin, Teams = um, 0, {}--Settings when it's not a usermessage
     if type(um) ~= "table" then
-        tool = um:ReadString()
-        admin = um:ReadLong()
-        Teams = um:ReadString()
-        if Teams ~= "nil" then
-            Teams = string.Explode(";", Teams)
-        else
-            Teams = {}
+        tool = net.ReadString()
+        admin = net.ReadUInt(2)
+        local teamCount = net.ReadUInt(10)
+
+        for i = 1, teamCount do
+            Teams[net.ReadUInt(10)] = true
         end
     end
 
@@ -781,20 +799,18 @@ RetrieveRestrictedTool = function(um)
     Tpan:EnableHorizontal(false)
     Tpan:EnableVerticalScrollbar(true)
 
-    for k,v in pairs(team.GetAllTeams()) do
+    for k, v in pairs(team.GetAllTeams()) do
         local chkbx = vgui.Create("DCheckBoxLabel")
         chkbx:SetText(v.Name)
         chkbx:SetDark(true)
         chkbx.Team = k
-        if table.HasValue(Teams, tostring(k)) then
-            chkbx.Button:SetValue(true)
-        end
+        chkbx.Button:SetValue(Teams[k])
 
         chkbx.Button.Toggle = function()
             if chkbx.Button:GetChecked() == nil or not chkbx.Button:GetChecked() then
-                chkbx.Button:SetValue( true )
+                chkbx.Button:SetValue(true)
             else
-                chkbx.Button:SetValue( false )
+                chkbx.Button:SetValue(false)
             end
 
             local tonum = {}
@@ -815,7 +831,7 @@ RetrieveRestrictedTool = function(um)
     end
 
 end
-usermessage.Hook("FPP_RestrictedToolList", RetrieveRestrictedTool)
+net.Receive("FPP_RestrictedToolList", RetrieveRestrictedTool)
 
 EditGroupTools = function(groupname)
     if not FPP.Groups[groupname] then return end

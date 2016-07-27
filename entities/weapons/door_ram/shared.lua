@@ -15,6 +15,7 @@ SWEP.Author = "DarkRP Developers"
 SWEP.Instructions = "Left click to break open doors/unfreeze props or get people out of their vehicles\nRight click to raise"
 SWEP.Contact = ""
 SWEP.Purpose = ""
+SWEP.IsDarkRPDoorRam = true
 
 SWEP.IconLetter = ""
 
@@ -42,10 +43,10 @@ SWEP.Secondary.DefaultClip = 0     -- Default number of bullets in a clip
 SWEP.Secondary.Automatic = false     -- Automatic/Semi Auto
 SWEP.Secondary.Ammo = ""
 
-/*---------------------------------------------------------
+--[[---------------------------------------------------------
 Name: SWEP:Initialize()
 Desc: Called when the weapon is first loaded
----------------------------------------------------------*/
+---------------------------------------------------------]]
 function SWEP:Initialize()
     if CLIENT then self.LastIron = CurTime() end
     self:SetHoldType("normal")
@@ -189,10 +190,10 @@ local function getRamFunction(ply, trace)
         fp{fn.Id, false} -- no ramming was performed
 end
 
-/*---------------------------------------------------------
+--[[---------------------------------------------------------
 Name: SWEP:PrimaryAttack()
 Desc: +attack1 has been pressed
----------------------------------------------------------*/
+---------------------------------------------------------]]
 function SWEP:PrimaryAttack()
     if not self:GetIronsights() then return end
 

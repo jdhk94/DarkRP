@@ -1,6 +1,6 @@
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Create a shipment from a spawned_weapon
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function createShipment(ply, args)
     local id = tonumber(args) or -1
     local ent = Entity(id)
@@ -29,7 +29,7 @@ local function createShipment(ply, args)
         end
     end
 
-    if not shipID then
+    if not shipID or ent.USED then
         DarkRP.notify(ply, 1, 4, DarkRP.getPhrase("unable", "/makeshipment", ""))
         return
     end
@@ -52,9 +52,9 @@ local function createShipment(ply, args)
 end
 DarkRP.defineChatCommand("makeshipment", createShipment, 0.3)
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 Split a shipment in two
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 local function splitShipment(ply, args)
     local id = tonumber(args) or -1
     local ent = Entity(id)
@@ -66,7 +66,7 @@ local function splitShipment(ply, args)
         return
     end
 
-    if ent:Getcount() < 2 or ent.locked then
+    if ent:Getcount() < 2 or ent.locked or ent.USED then
         DarkRP.notify(ply, 1, 4, DarkRP.getPhrase("shipment_cannot_split"))
         return
     end

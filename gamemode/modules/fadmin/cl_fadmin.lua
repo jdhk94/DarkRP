@@ -1,6 +1,6 @@
 local function IncludeFolder(fol)
     fol = string.lower(fol)
-    local files, folders = file.Find(fol .. "*", "LUA")
+    local _, folders = file.Find(fol .. "*", "LUA")
 
     for _, folder in SortedPairs(folders, true) do
         if folder ~= "." and folder ~= ".." then
@@ -18,9 +18,9 @@ end
 IncludeFolder(GM.FolderName .. "/gamemode/modules/fadmin/fadmin/")
 IncludeFolder(GM.FolderName .. "/gamemode/modules/fadmin/fadmin/playeractions/")
 
-/*---------------------------------------------------------------------------
+--[[---------------------------------------------------------------------------
 FAdmin global settings
----------------------------------------------------------------------------*/
+---------------------------------------------------------------------------]]
 net.Receive("FAdmin_GlobalSetting", function(len)
     local setting, value = net.ReadString(), net.ReadType(net.ReadUInt(8))
 
